@@ -18,6 +18,8 @@
 // ══════════════════════════════════════════════════════════════
 
 import React, { useState, useEffect } from "react";
+import ReactQuill from "react-quill-new";
+import "quill/dist/quill.snow.css";
 import "./CreateNovelPage.css";
 import MultiSelect from "../../../components/MultiSelect/MultiSelect";
 import CoverUpload from "../../../components/CoverUpload/CoverUpload";
@@ -61,8 +63,14 @@ const validate = (form) => {
         errors.tagline = "คำโปรยต้องไม่เกิน 200 ตัวอักษร";
     if (form.categories.length === 0)
         errors.categories = "กรุณาเลือกหมวดหมู่อย่างน้อย 1 หมวด";
-    if (!form.description.trim())
+    
+    const plainDescription = form.description
+        .replace(/<(.|\n)*?>/g, "")
+        .trim();
+
+    if (!plainDescription)
         errors.description = "กรุณากรอกแนะนำเรื่อง";
+    
     return errors;
 };
 
@@ -225,9 +233,9 @@ const CreateNovelPage = ({ onNavigate }) => {
             <div className="cnp__form-wrap">
                 <div className="cnp__card">
                     {submissionError && (
-                      <div className="cnp__error-banner" role="alert" style={{ marginBottom: "16px" }}>
-                        {submissionError}
-                      </div>
+                        <div className="cnp__error-banner" role="alert" style={{ marginBottom: "16px" }}>
+                            {submissionError}
+                        </div>
                     )}
 
                     {/* ── Card section header ── */}
@@ -314,14 +322,15 @@ const CreateNovelPage = ({ onNavigate }) => {
                                 <label className="cnp__label" htmlFor="inp-description">
                                     แนะนำเรื่อง <span className="cnp__required">*</span>
                                 </label>
-                                <textarea
-                                    id="inp-description"
-                                    className={`cnp__textarea cnp__textarea--lg ${errors.description ? "cnp__input--error" : ""}`}
-                                    placeholder="แนะนำเรื่องราวเกี่ยวกับนิยายของคุณ...."
-                                    value={form.description}
-                                    onChange={(e) => setField("description", e.target.value)}
-                                    aria-required="true"
-                                />
+                                <div className={`cnp__quill-wrap ${errors.description ? "cnp__quill-wrap--error" : ""}`}>
+                                    <ReactQuill
+                                        theme="snow"
+                                        value={form.description}
+                                        onChange={(value) => setField("description", value)}
+                                        placeholder="แนะนำเรื่องราวเกี่ยวกับนิยายของคุณ...."
+                                        className="cnp__quill"
+                                    />
+                                </div>
                                 {errors.description && (
                                     <p className="cnp__error" role="alert">{errors.description}</p>
                                 )}
