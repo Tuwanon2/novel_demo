@@ -2,7 +2,7 @@
 //  หน้า Dashboard ฝั่งนักเขียน — ดึงสถิติรวม + รายการนิยายจริงจากหลังบ้าน
 //
 //  Backend API connected (Updated to matching your Go Backend):
-//    - GET    /api/me/novels             -> รายการนิยายทั้งหมดของผู้ใช้คนนี้ (Novels List)
+//    - GET    /api/me/novels            -> รายการนิยายทั้งหมดของผู้ใช้คนนี้ (Novels List)
 //    - DELETE /api/v1/writer/novels/:id -> ลบนิยายเรื่องที่เลือก (คงไว้ตามเดิมเพื่อใช้ในอนาคต)
 // ══════════════════════════════════════════════════════════════
 
@@ -83,20 +83,20 @@ const WriterDashboardPage = ({ onNavigate, onSelectNovel }) => {
 
       const result = await response.json();
       
-      // ดึงอาร์เรย์ของนิยายออกมาจากโครงสร้าง Map {"author_id": X, "novels": [...]} ที่ Go ส่งมา
-      // และดักตรวจสอบกรณีก่อนหน้าถ้าข้อมูลหลังบ้านเป็น empty array
+      // ดึงอาร์เรย์ของนิยายออกมาจากโครงสร้างที่ Go ส่งมา
       const fetchedNovels = result?.novels || result?.data?.novels || [];
       
-      // คำนวณสถิติรวม (สแตท) จากอาร์เรย์นิยายที่ดึงมาได้โดยตรง (ไม่ต้องพึ่ง API สถิติแยก)
+      // คำนวณสถิติรวม (สแตท) จากอาร์เรย์นิยายที่ดึงมาได้
+      // 🎯 ดักจับ Key ยอดฮิตที่หลังบ้านมักจะพ่นออกมา (total_views, view_count, views)
       let calculatedLikes = 0;
       let calculatedViews = 0;
       let calculatedBookmarks = 0;
 
       if (Array.isArray(fetchedNovels)) {
         fetchedNovels.forEach(novel => {
-          calculatedViews += novel.stats?.views ?? novel.views ?? 0;
-          calculatedLikes += novel.stats?.likes ?? novel.likes ?? 0;
-          calculatedBookmarks += novel.stats?.bookmarks ?? novel.bookmarks ?? 0;
+          calculatedViews += novel.total_views ?? novel.view_count ?? novel.stats?.views ?? novel.views ?? 0;
+          calculatedLikes += novel.total_likes ?? novel.like_count ?? novel.stats?.likes ?? novel.likes ?? 0;
+          calculatedBookmarks += novel.total_bookmarks ?? novel.bookmark_count ?? novel.stats?.bookmarks ?? novel.bookmarks ?? 0;
         });
       }
 
@@ -246,11 +246,15 @@ const NovelCard = ({ novel, onEdit, onTree, onDelete }) => {
   const title = novel.title || "";
   const coverImage = novel.cover_image || novel.coverImage;
   const status = novel.status || "draft";
-  const sceneCount = novel.scene_count ?? novel.sceneCount ?? 0;
   
-  const views = novel.stats?.views ?? novel.views ?? 0;
-  const likes = novel.stats?.likes ?? novel.likes ?? 0;
-  const bookmarks = novel.stats?.bookmarks ?? novel.bookmarks ?? 0;
+  // 🎯 ดักจับจำนวนฉากและจำนวนตอน ให้ครอบคลุมทุกรูปแบบคีย์ที่ Go มักจะส่งมา
+  const sceneCount = novel.total_scenes ?? novel.scene_count ?? novel.sceneCount ?? 0;
+  const chapterCount = novel.total_chapters ?? novel.chapter_count ?? novel.chapterCount ?? 0;
+  
+  // 🎯 ดักจับคีย์สถิติรายเรื่องให้อ่านได้ชัวร์ๆ (เผื่อหลังบ้านไม่ได้ส่งมาในก้อน stats)
+  const views = novel.total_views ?? novel.view_count ?? novel.stats?.views ?? novel.views ?? 0;
+  const likes = novel.total_likes ?? novel.like_count ?? novel.stats?.likes ?? novel.likes ?? 0;
+  const bookmarks = novel.total_bookmarks ?? novel.bookmark_count ?? novel.stats?.bookmarks ?? novel.bookmarks ?? 0;
 
   let updatedAtText = "ไม่มีการอัปเดต";
   const rawDate = novel.updated_at || novel.updatedAt;
@@ -294,7 +298,7 @@ const NovelCard = ({ novel, onEdit, onTree, onDelete }) => {
       {/* Body */}
       <div className="nvc__body">
         <h3 className="nvc__title">{title}</h3>
-        <p className="nvc__date">อัปเดต {updatedAtText} · {sceneCount} ฉาก</p>
+        <p className="nvc__date">อัปเดต {updatedAtText} · {chapterCount} ตอน · {sceneCount} ฉาก</p>
 
         {/* Stats row */}
         <div className="nvc__stats">

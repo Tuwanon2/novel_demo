@@ -92,14 +92,11 @@ const WriterSidebar = ({ currentPage: currentPageProp, selectedNovelId: selected
     return pathname.startsWith("/writer/dashboard") ? "dashboard" : "dashboard";
   })();
 
-  // 🎯 🟢 ปรับปรุงฟังก์ชัน Route ให้รองรับทั้ง App State และ URL Navigation 
   const handleRoute = (pageId) => {
-    // 1. ถ้าหน้าหลักส่ง Event Callback มาควบคุม ให้ส่งข้ามไปบอกหน้าหลักด้วย
     if (typeof onNavigate === "function") {
       onNavigate(pageId);
     }
 
-    // 2. ควบคุมทิศทางของ URL ไปพร้อมๆ กัน ป้องกันอาการนิ่งค้าง
     switch (pageId) {
       case "reader-mode":
         navigate("/");
@@ -210,9 +207,10 @@ const WriterSidebar = ({ currentPage: currentPageProp, selectedNovelId: selected
           onClick={() => handleRoute("reader-mode")}
           aria-label="กลับไปโหมดนักอ่าน"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M1 4v6h6M23 20v-6h-6"/>
-            <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 03.51 15"/>
+          {/* เปลี่ยน SVG เป็นแบบ Clean ไม่พังแน่นอน */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px" }}>
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
           กลับไปโหมดนักอ่าน
         </button>

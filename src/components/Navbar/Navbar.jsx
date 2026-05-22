@@ -178,7 +178,7 @@ const Navbar = () => {
                                     📖 สลับไปโหมดนักอ่าน
                                 </button>
                             ) : (
-                                <button className="nav-switch-btn nav-switch-btn--writer" onClick={() => navigate("/dashboard")}>
+                                <button className="nav-switch-btn nav-switch-btn--writer" onClick={() => navigate("/writer/dashboard")}>
                                     ✍️ สตูดิโอนักเขียน
                                 </button>
                             )}

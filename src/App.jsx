@@ -80,7 +80,7 @@ const createNavigateHandler = (navigate, currentNovelId = null) => (page, payloa
       if (activeNovelId) {
         navigate(`/writer/storytree/${activeNovelId}`);
       } else {
-        navigate("/dashboard");
+        navigate("/writer/dashboard");
       }
       break;
     case "novel-detail":
