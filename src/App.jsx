@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -31,6 +31,8 @@ import WriterRegisterPage from "./pages/Auth/WriterRegisterPage";
 
 import "./style/App.css";
 import "./style/index.css";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 // ======================================================
 // Reader Layout
@@ -207,14 +209,66 @@ const SceneEditorRoute = () => {
   const { novelId, sceneId } = useParams();
   const navHandler = createNavigateHandler(navigate, novelId);
 
+  const [chapterId, setChapterId] = useState("");
+  const [loadingChapter, setLoadingChapter] = useState(true);
+  const [chapterError, setChapterError] = useState(null);
+
+  useEffect(() => {
+    if (!sceneId) {
+      setChapterId("");
+      setLoadingChapter(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingChapter(true);
+    setChapterError(null);
+
+    fetch(`${API_BASE_URL}/scenes/${sceneId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`ไม่สามารถโหลดข้อมูลฉากได้ (${res.status})`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        const sceneData = data?.data || data || {};
+        const resolvedId = sceneData.chapterId ?? sceneData.chapter_id ?? "";
+        setChapterId(resolvedId ? String(resolvedId) : "");
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error("SceneEditorRoute load chapterId error:", err);
+        setChapterError(err.message || "เกิดข้อผิดพลาดในการโหลด chapterId");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoadingChapter(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [sceneId]);
+
   return (
     <WriterLayout onNavigate={navHandler}>
-      <SceneEditorPage 
-        novelId={novelId} 
-        chapterId="1" 
-        sceneId={sceneId} 
-        onNavigate={navHandler} 
-      />
+      {loadingChapter ? (
+        <div style={{ padding: 28, color: "var(--gray-700)" }}>
+          กำลังโหลดข้อมูลตอนของฉาก...
+        </div>
+      ) : (
+        <SceneEditorPage
+          novelId={novelId}
+          chapterId={chapterId}
+          sceneId={sceneId}
+          onNavigate={navHandler}
+        />
+      )}
+      {chapterError && (
+        <div style={{ padding: 18, color: "#B91C1C", fontSize: 13 }}>
+          {chapterError}
+        </div>
+      )}
     </WriterLayout>
   );
 };
@@ -272,21 +326,11 @@ function App() {
     <Router>
       <Routes>
         {/* Reader Routes */}
-<<<<<<< HEAD
         <Route path="/" element={<RedirectAdminIfNeeded><HomePageRoute /></RedirectAdminIfNeeded>} />
         <Route path="/novel/:id" element={<RedirectAdminIfNeeded><NovelDetailRoute /></RedirectAdminIfNeeded>} />
         <Route path="/storytree/:novelId" element={<RedirectAdminIfNeeded><StoryTreeRoute /></RedirectAdminIfNeeded>} />
         <Route path="/reading/:novelId" element={<RedirectAdminIfNeeded><ReadingRoute /></RedirectAdminIfNeeded>} />
         <Route path="/reading/:novelId/:sceneId" element={<RedirectAdminIfNeeded><ReadingRoute /></RedirectAdminIfNeeded>} />
-=======
-        <Route path="/" element={<HomePageRoute />} />
-        <Route path="/novel/:id" element={<NovelDetailRoute />} />
-        <Route path="/storytree/:novelId" element={<StoryTreeRoute />} />
-        <Route path="/reading/:novelId" element={<ReadingRoute />} />
-        <Route path="/reading/:novelId/:sceneId" element={<ReadingRoute />} />
-        
-
->>>>>>> 530143f211e72c24f129e442ec432425e4cba34e
 
         {/* Writer Routes */}
         <Route path="/writer/dashboard" element={<RedirectAdminIfNeeded><WriterDashboardRoute /></RedirectAdminIfNeeded>} />
