@@ -2,18 +2,19 @@ package models
 
 // ✅ ใช้กับ database
 type Scene struct {
-	SceneID           int     `json:"scene_id"`
-	ChapterID         int     `json:"chapter_id"`
-	NovelID           int     `json:"novel_id"`
-	Title             string  `json:"title"`
-	Content           string  `json:"content"`
-	ImageURL          string  `json:"image_url"`
-	Type              string  `json:"type"`
-	EndingTitle       *string `json:"ending_title,omitempty"`
-	EndingType        *string `json:"ending_type,omitempty"`
-	EndingDescription *string `json:"ending_description,omitempty"`
-	NovelTitle        string  `json:"-"`
-	ChapterTitle      string  `json:"-"`
+	SceneID           int      `json:"scene_id"`
+	ChapterID         int      `json:"chapter_id"`
+	NovelID           int      `json:"novel_id"`
+	Title             string   `json:"title"`
+	Content           string   `json:"content"`
+	ImageURL          string   `json:"image_url"`
+	Type              string   `json:"type"`
+	EndingTitle       *string  `json:"ending_title,omitempty"`
+	EndingType        *string  `json:"ending_type,omitempty"`
+	EndingDescription *string  `json:"ending_description,omitempty"`
+	Choices           []Choice `json:"choices,omitempty"`
+	NovelTitle        string   `json:"-"`
+	ChapterTitle      string   `json:"-"`
 }
 
 // ✅ ใช้ส่งให้ frontend
@@ -40,21 +41,24 @@ type StoryTreeResponse struct {
 }
 
 type TreeStats struct {
-    VisitedScenes     int `json:"visited_scenes"`      // จำนวนโหนดที่ is_unlocked = true
-    TotalScenes       int `json:"total_scenes"`        // นับจำนวนโหนดทั้งหมดของนิยายเรื่องนี้
-    DiscoveredChoices int `json:"discovered_choices"`  // จำนวนเส้นเชื่อม (Edges) ที่ผู้เล่นเคยเดินผ่าน
-    TotalChoicePoints int `json:"total_choice_points"`  // นับจำนวนเส้นเชื่อมทั้งหมดที่มีในเรื่อง
-    UnlockedEndings   int `json:"unlocked_endings"`    // จำนวนโหนดประเภท ending ที่เป็น true
-    TotalEndings      int `json:"total_endings"`       // จำนวนโหนดประเภท ending ทั้งหมด
+	VisitedScenes     int `json:"visited_scenes"`      // จำนวนโหนดที่ is_unlocked = true
+	TotalScenes       int `json:"total_scenes"`        // นับจำนวนโหนดทั้งหมดของนิยายเรื่องนี้
+	DiscoveredChoices int `json:"discovered_choices"`  // จำนวนเส้นเชื่อม (Edges) ที่ผู้เล่นเคยเดินผ่าน
+	TotalChoicePoints int `json:"total_choice_points"` // นับจำนวนเส้นเชื่อมทั้งหมดที่มีในเรื่อง
+	UnlockedEndings   int `json:"unlocked_endings"`    // จำนวนโหนดประเภท ending ที่เป็น true
+	TotalEndings      int `json:"total_endings"`       // จำนวนโหนดประเภท ending ทั้งหมด
 }
 
 type SceneNode struct {
-	ID         int    `json:"id"`
-	Label      string `json:"label"`
-	Title      string `json:"title"`   // 🎯 ชื่อตอน/หัวข้อฉากจริงๆ เช่น "พบหญิงสาวปริศนา"
-	Content    string `json:"content"` // 🎯 เรื่องย่อท่อนสั้นๆ ประจำฉาก
-	Type       string `json:"type"`
-	IsUnlocked bool   `json:"is_unlocked"`
+	ID           int    `json:"id"`
+	Label        string `json:"label"`
+	Title        string `json:"title"`   // 🎯 ชื่อตอน/หัวข้อฉากจริงๆ เช่น "พบหญิงสาวปริศนา"
+	Content      string `json:"content"` // 🎯 เรื่องย่อท่อนสั้นๆ ประจำฉาก
+	Type         string `json:"type"`
+	IsUnlocked   bool   `json:"is_unlocked"`
+	ChapterTitle string `json:"chapter_title,omitempty"`
+	Excerpt      string `json:"excerpt,omitempty"`
+	Status       string `json:"status,omitempty"`
 }
 
 type SceneEdge struct {

@@ -55,8 +55,16 @@ func (r *postgresNovelRepository) GetNovelByID(id int) (*models.Novel, error) {
 	return GetNovelByID(r.db, id)
 }
 
+func (r *postgresNovelRepository) GetNovelsByAuthorID(authorID int) ([]models.Novel, error) {
+	return GetNovelsByAuthorID(r.db, authorID)
+}
+
 func (r *postgresNovelRepository) CreateNovel(novel models.Novel) (int, error) {
 	return CreateNovel(r.db, novel)
+}
+
+func (r *postgresNovelRepository) DeleteNovel(id int) error {
+	return DeleteNovel(r.db, id)
 }
 
 // ======= Scene Repository Methods =======
@@ -79,6 +87,22 @@ func (r *postgresSceneRepository) GetScenesByChapterID(chapterID int) ([]models.
 
 func (r *postgresSceneRepository) CreateScene(scene models.Scene) (int, error) {
 	return CreateScene(r.db, scene)
+}
+
+func (r *postgresSceneRepository) UpdateScene(scene models.Scene) error {
+	return UpdateScene(r.db, scene)
+}
+
+func (r *postgresSceneRepository) GetChoiceByID(choiceID int) (*models.Choice, error) {
+	return GetChoiceByID(r.db, choiceID)
+}
+
+func (r *postgresSceneRepository) UpdateChoice(choice models.Choice) error {
+	return UpdateChoice(r.db, choice)
+}
+
+func (r *postgresSceneRepository) DeleteChoice(choiceID int) error {
+	return DeleteChoice(r.db, choiceID)
 }
 
 func (r *postgresSceneRepository) CountScenesInNovel(novelID int) (int, error) {

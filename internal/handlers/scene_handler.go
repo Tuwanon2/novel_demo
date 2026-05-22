@@ -49,6 +49,55 @@ func CreateSceneHandler(sceneService service.SceneService) http.HandlerFunc {
 	}
 }
 
+func UpdateSceneHandler(sceneService service.SceneService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sceneID, err := extractIDFromPath(r.URL.Path, "/scenes/")
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid id parameter")
+			return
+		}
+
+		var req UpdateSceneRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		scene := models.Scene{
+			SceneID:           sceneID,
+			Title:             req.Title,
+			Content:           req.Content,
+			Type:              req.Type,
+			EndingTitle:       toPtr(req.EndingTitle),
+			EndingType:        toPtr(req.EndingType),
+			EndingDescription: toPtr(req.EndingDescription),
+		}
+
+		if req.IsEnding {
+			scene.Type = "ending"
+		}
+
+		if err := sceneService.UpdateScene(scene); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if req.Choices != nil {
+			if err := sceneService.SyncSceneChoices(sceneID, req.Choices); err != nil {
+				WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+
+		WriteJSON(w, http.StatusOK, map[string]any{"message": "scene updated"})
+	}
+}
+
 // ... GetSceneHandler คงเดิม ...
 func GetSceneHandler(sceneService service.SceneService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -1,23 +1,31 @@
 package repository
 
 import (
+	"context"
+	"novel-be/internal/dto"
 	"novel-be/internal/models"
 )
 
 type NovelRepository interface {
 	ListNovels() ([]models.Novel, error)
 	GetNovelByID(id int) (*models.Novel, error)
+	GetNovelsByAuthorID(authorID int) ([]models.Novel, error)
 	CreateNovel(models.Novel) (int, error)
 	UpdateCoverImage(id int, url string) error
+	DeleteNovel(id int) error
 }
 
 type SceneRepository interface {
 	GetSceneByID(id int) (*models.Scene, error)
 	GetStartSceneByNovelID(novelID int) (*models.Scene, error)
 	GetChoicesBySceneID(id int) ([]models.Choice, error)
+	GetChoiceByID(choiceID int) (*models.Choice, error)
 	GetScenesByChapterID(chapterID int) ([]models.Scene, error)
 	CreateScene(scene models.Scene) (int, error)
+	UpdateScene(scene models.Scene) error
 	CreateChoice(choice models.Choice) (int, error)
+	UpdateChoice(choice models.Choice) error
+	DeleteChoice(choiceID int) error
 	CountScenesInNovel(novelID int) (int, error)
 	CheckChoiceExists(fromID, toID int, label string) (bool, error)
 	CheckSceneExists(chapterID int, title string) (bool, error)
@@ -48,4 +56,16 @@ type ReadingRepository interface {
 
 type WriterRepository interface {
 	GetWriterByID(id int) (*models.Writer, error)
+	GetWriterByUserID(userID int) (*models.Writer, error)
+	Apply(ctx context.Context, userID uint, req dto.WriterApplyRequest, contactJSON string) error
+	GetPendingRequests(ctx context.Context) ([]dto.WriterRequestResponse, error)
+	ApproveWriter(ctx context.Context, writerID uint) error
+	RejectWriter(ctx context.Context, writerID uint) error
+}
+
+type AuthRepository interface {
+	CreateUser(ctx context.Context, user *models.User) error
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByID(ctx context.Context, userID uint) (*models.User, error)
 }

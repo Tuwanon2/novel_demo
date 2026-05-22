@@ -33,12 +33,20 @@ func (s *novelService) GetNovelDetail(id int) (interface{}, error) {
 	return s.repo.GetNovelByID(id)
 }
 
+func (s *novelService) GetNovelsByAuthorID(authorID int) ([]models.Novel, error) {
+	return s.repo.GetNovelsByAuthorID(authorID)
+}
+
 func (s *novelService) CreateNovel(novel models.Novel) (int, error) {
 	return s.repo.CreateNovel(novel)
 }
 
 func (s *novelService) UpdateNovelCover(id int, url string) error {
 	return s.repo.UpdateCoverImage(id, url)
+}
+
+func (s *novelService) DeleteNovel(id int) error {
+	return s.repo.DeleteNovel(id)
 }
 
 // 🟢 ฟังก์ชันช่วยเช็ค (ถ้าไฟล์อื่นเรียกใช้)

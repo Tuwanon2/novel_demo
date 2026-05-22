@@ -68,6 +68,8 @@ func main() {
 	readingRepo := repository.NewReadingRepository(dbConn)
 	mediaRepo := repository.NewMinIOMediaRepository(minioClient, cfg.MinIOEndpoint)
 	categoryRepo := repository.NewCategoryRepository(dbConn)
+	authRepo := repository.NewAuthRepository(dbConn)
+	writerRepo := repository.NewWriterRepository(dbConn) // 👈 ผูกเชื่อมตารางสมัครนักเขียนเข้าฐานข้อมูลจริง
 
 	// Ensure MinIO bucket exists
 	ctx := context.Background()
@@ -82,7 +84,7 @@ func main() {
 	// 🟢 ย้าย mediaService ขึ้นมาสร้างก่อน เพราะ novelService ต้องใช้งาน
 	mediaService := service.NewMediaService(mediaRepo)
 
-	// 🟢 ตอนนี้ส่ง mediaService เข้าไปได้แล้ว (ต้องแก้ NewNovelService ในไฟล์ service ให้รับด้วยนะจ๊ะ)
+	// 🟢 ตอนนี้ส่ง mediaService เข้าไปได้แล้ว
 	novelService := service.NewNovelService(novelRepo, mediaService)
 
 	sceneService := service.NewSceneService(sceneRepo, dbConn)
@@ -90,8 +92,14 @@ func main() {
 	socialService := service.NewSocialService(socialRepo)
 	readingService := service.NewReadingService(readingRepo)
 	flowService := service.NewFlowService(sceneService)
-	writerService := service.NewWriterService(dbConn)
 	categoryService := service.NewCategoryService(categoryRepo)
+
+	// 🟢 สร้างบริการระบบคำขอสมัครนักเขียนแบบสิทธิ์รออนุมัติ
+	writerService := service.NewWriterServiceDirect(writerRepo)
+
+	// 🟢 สร้างบริการระบบ Authentication สมาชิกของแท้
+	authService := service.NewAuthService(authRepo)
+
 	// สร้าง ServeMux ใหม่
 	mux := http.NewServeMux()
 
@@ -106,9 +114,10 @@ func main() {
 		sceneService,
 		socialService,
 		readingService,
-		writerService,
+		writerService, // 👈 ส่งมอบบริการคำขอสมัครนักเขียนเข้าสู่กลุ่มเส้นทาง API
 		mediaService,
 		categoryService,
+		*authService, // 👈 ส่งบริการ Authen เข้าพ่วงท้ายแถวโดยใช้ * แกะ Pointer ออกตามโครงสร้างเดิม
 	)
 
 	// -----------------------

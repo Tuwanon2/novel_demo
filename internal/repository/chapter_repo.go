@@ -24,6 +24,13 @@ func GetChaptersByNovelID(db *sql.DB, novelID int) ([]models.Chapter, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		scenes, err := GetScenesByChapterID(db, c.ChapterID)
+		if err != nil {
+			return nil, err
+		}
+		c.Scenes = scenes
+
 		chapters = append(chapters, c)
 	}
 	return chapters, nil

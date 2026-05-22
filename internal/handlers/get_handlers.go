@@ -3,6 +3,8 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"novel-be/internal/middleware"
+	"novel-be/internal/models"
 	"novel-be/internal/service"
 	"strconv"
 	"strings"
@@ -315,6 +317,45 @@ func UploadImageHandler(mediaService service.MediaService, novelService service.
 			"saved_path": dbPathToSave,
 			"filename":   handler.Filename,
 			"db_status":  dbStatus,
+		})
+	}
+}
+
+// GET /me/novels - Get novels written by the logged-in user
+func GetMyNovelsHandler(novelService service.NovelService, writerService service.WriterService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", "only GET is supported")
+			return
+		}
+
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			RespondWithError(w, http.StatusUnauthorized, "unauthorized", "user_id not found in context")
+			return
+		}
+
+		writer, err := writerService.GetWriterByUserID(int(userID))
+		if err != nil || writer == nil {
+			RespondWithError(w, http.StatusForbidden, "forbidden", "คุณยังไม่ใช่นักเขียนที่ได้รับอนุมัติ")
+			return
+		}
+
+		authorID := writer.WriterID
+
+		novels, err := novelService.GetNovelsByAuthorID(authorID)
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, "failed to fetch novels", err.Error())
+			return
+		}
+
+		if novels == nil {
+			novels = []models.Novel{}
+		}
+
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"author_id": authorID,
+			"novels":    novels,
 		})
 	}
 }

@@ -42,6 +42,37 @@ func CreateChoice(db *sql.DB, choice models.Choice) (int, error) {
 	return id, nil
 }
 
+func UpdateChoice(db *sql.DB, choice models.Choice) error {
+	_, err := db.Exec(`
+        UPDATE choices
+        SET to_scene_id = $1,
+            label = $2
+        WHERE choice_id = $3
+    `, choice.ToSceneID, choice.Label, choice.ChoiceID)
+	return err
+}
+
+func DeleteChoice(db *sql.DB, id int) error {
+	_, err := db.Exec(`
+        DELETE FROM choices
+        WHERE choice_id = $1
+    `, id)
+	return err
+}
+
+func GetChoiceByID(db *sql.DB, id int) (*models.Choice, error) {
+	var c models.Choice
+	err := db.QueryRow(`
+        SELECT choice_id, from_scene_id, to_scene_id, label
+        FROM choices
+        WHERE choice_id = $1
+    `, id).Scan(&c.ChoiceID, &c.FromSceneID, &c.ToSceneID, &c.Label)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
 func (r *postgresSceneRepository) CheckChoiceExists(fromID, toID int, label string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM choices WHERE from_scene_id=$1 AND to_scene_id=$2 AND label=$3)`

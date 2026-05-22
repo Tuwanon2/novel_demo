@@ -19,9 +19,7 @@ func (r *CreateNovelRequest) Validate() error {
 	if strings.TrimSpace(r.Title) == "" {
 		return errors.New("title is required")
 	}
-	if r.AuthorID == 0 {
-		return errors.New("author_id is required")
-	}
+	// 🟢 ปลดล็อกเรียบร้อย: ลบเช็ค r.AuthorID == 0 ออก เพื่อปล่อยให้ด่านตรวจ (Token) ฝั่งหลังบ้านยัดไอดีให้เอง
 	if strings.TrimSpace(r.Status) == "" {
 		r.Status = "draft"
 	}
@@ -70,12 +68,28 @@ func (r *CreateSceneRequest) Validate() error {
 	if r.ChapterID == 0 {
 		return errors.New("chapter_id is required")
 	}
-	if strings.TrimSpace(r.Content) == "" {
-		return errors.New("content is required")
+	if strings.TrimSpace(r.Title) == "" {
+		return errors.New("title is required")
 	}
 	if strings.TrimSpace(r.Type) == "" {
 		r.Type = "normal"
 	}
+	return nil
+}
+
+type UpdateSceneRequest struct {
+	Title             string        `json:"title"`
+	Content           string        `json:"content"`
+	Type              string        `json:"type"`
+	IsEnding          bool          `json:"is_ending"`
+	EndingTitle       string        `json:"ending_title"`
+	EndingType        string        `json:"ending_type"`
+	EndingDescription string        `json:"ending_description"`
+	Status            string        `json:"status"`
+	Choices           []interface{} `json:"choices,omitempty"`
+}
+
+func (r *UpdateSceneRequest) Validate() error {
 	return nil
 }
 
@@ -94,6 +108,21 @@ func (r *CreateChoiceRequest) Validate() error {
 	}
 	if strings.TrimSpace(r.Label) == "" {
 		return errors.New("label is required")
+	}
+	return nil
+}
+
+type UpdateChoiceRequest struct {
+	Label     string `json:"label"`
+	ToSceneID int    `json:"to_scene_id"`
+}
+
+func (r *UpdateChoiceRequest) Validate() error {
+	if strings.TrimSpace(r.Label) == "" {
+		return errors.New("label is required")
+	}
+	if r.ToSceneID == 0 {
+		return errors.New("to_scene_id is required")
 	}
 	return nil
 }

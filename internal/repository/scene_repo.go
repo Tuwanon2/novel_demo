@@ -24,7 +24,7 @@ func GetSceneByID(db *sql.DB, id int) (*models.Scene, error) {
 
 	var s models.Scene
 	err := row.Scan(
-		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type, 
+		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
 		&endingTitle, &endingType, &endingDescription,
 		&s.NovelTitle, &s.ChapterTitle, // 👈 แสกนค่าชื่อเรื่องและชื่อตอนลงตัวแปรพิเศษ
 	)
@@ -32,14 +32,20 @@ func GetSceneByID(db *sql.DB, id int) (*models.Scene, error) {
 		return nil, err
 	}
 
-	if endingTitle.Valid { s.EndingTitle = &endingTitle.String }
-	if endingType.Valid { s.EndingType = &endingType.String }
-	if endingDescription.Valid { s.EndingDescription = &endingDescription.String }
+	if endingTitle.Valid {
+		s.EndingTitle = &endingTitle.String
+	}
+	if endingType.Valid {
+		s.EndingType = &endingType.String
+	}
+	if endingDescription.Valid {
+		s.EndingDescription = &endingDescription.String
+	}
 
 	return &s, nil
 }
 
-// GetStartSceneByNovelID หาจุดเริ่มต้นของนิยายร่วมกับชื่อเรื่องนิยายและชื่อตอน 
+// GetStartSceneByNovelID หาจุดเริ่มต้นของนิยายร่วมกับชื่อเรื่องนิยายและชื่อตอน
 func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 	var endingTitle, endingType, endingDescription sql.NullString
 
@@ -59,7 +65,7 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 
 	var s models.Scene
 	err := row.Scan(
-		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type, 
+		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
 		&endingTitle, &endingType, &endingDescription,
 		&s.NovelTitle, &s.ChapterTitle, // 👈 แสกนค่าชื่อเรื่องและชื่อตอนลงตัวแปรพิเศษ
 	)
@@ -67,9 +73,15 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 		return nil, err
 	}
 
-	if endingTitle.Valid { s.EndingTitle = &endingTitle.String }
-	if endingType.Valid { s.EndingType = &endingType.String }
-	if endingDescription.Valid { s.EndingDescription = &endingDescription.String }
+	if endingTitle.Valid {
+		s.EndingTitle = &endingTitle.String
+	}
+	if endingType.Valid {
+		s.EndingType = &endingType.String
+	}
+	if endingDescription.Valid {
+		s.EndingDescription = &endingDescription.String
+	}
 
 	return &s, nil
 }
@@ -94,6 +106,13 @@ func GetScenesByChapterID(db *sql.DB, chapterID int) ([]models.Scene, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		choices, err := GetChoicesBySceneID(db, s.SceneID)
+		if err != nil {
+			return nil, err
+		}
+		s.Choices = choices
+
 		scenes = append(scenes, s)
 	}
 	return scenes, nil
@@ -111,6 +130,21 @@ func CreateScene(db *sql.DB, scene models.Scene) (int, error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+func UpdateScene(db *sql.DB, scene models.Scene) error {
+	_, err := db.Exec(`
+		UPDATE scenes
+		SET title = $1,
+		    content = $2,
+		    image_url = $3,
+		    type = $4,
+		    ending_title = $5,
+		    ending_type = $6,
+		    ending_description = $7
+		WHERE scene_id = $8
+	`, scene.Title, scene.Content, scene.ImageURL, scene.Type, scene.EndingTitle, scene.EndingType, scene.EndingDescription, scene.SceneID)
+	return err
 }
 
 // CountScenesInNovel นับจำนวนฉากทั้งหมดในนิยายเรื่องนี้ (ใช้สำหรับ Automate Type 'start')
@@ -175,10 +209,13 @@ func (r *postgresSceneRepository) GetEdgesByNovelID(novelID int) ([]models.Scene
 
 func (r *postgresSceneRepository) GetNodesByNovelIDForUser(novelID int, userID int) ([]models.SceneNode, error) {
 	// ใช้ LEFT JOIN กับ user_scene_history เพื่อเช็คว่า User เคยมาที่นี่หรือยัง
+	// 🎯 เพิ่มการดึง content, ending_title, ending_description สำหรับแสดงข้อมูลครบถ้วน
 	query := `
-        SELECT s.scene_id, s.title, s.type, 
+        SELECT s.scene_id, s.title, s.type, c.title AS chapter_title, s.content,
+               s.ending_title, s.ending_description,
                CASE WHEN ush.id IS NOT NULL THEN true ELSE false END as is_unlocked
         FROM scenes s
+        LEFT JOIN chapters c ON s.chapter_id = c.chapter_id
         LEFT JOIN user_scene_history ush ON s.scene_id = ush.scene_id AND ush.user_id = $2
         WHERE s.novel_id = $1`
 
@@ -191,9 +228,22 @@ func (r *postgresSceneRepository) GetNodesByNovelIDForUser(novelID int, userID i
 	var nodes []models.SceneNode
 	for rows.Next() {
 		var n models.SceneNode
-		if err := rows.Scan(&n.ID, &n.Label, &n.Type, &n.IsUnlocked); err != nil {
+		var endingTitle sql.NullString
+		var endingDesc sql.NullString
+
+		if err := rows.Scan(&n.ID, &n.Title, &n.Type, &n.ChapterTitle, &n.Content,
+			&endingTitle, &endingDesc, &n.IsUnlocked); err != nil {
 			return nil, err
 		}
+
+		// 🎯 ใช้ title เป็น Label ด้วย (สำหรับแสดงในกราฟ)
+		n.Label = n.Title
+
+		// 🎯 ถ้าเป็น ending scene ให้เก็บ ending information
+		if n.Type == "ending" && endingTitle.Valid {
+			n.Label = endingTitle.String
+		}
+
 		nodes = append(nodes, n)
 	}
 	return nodes, nil

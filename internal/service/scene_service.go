@@ -3,8 +3,10 @@ package service
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"novel-be/internal/models"
 	"novel-be/internal/repository"
+	"strconv"
 	"strings"
 )
 
@@ -25,6 +27,14 @@ func (s *sceneService) formatImageURL(imageName string) string {
 	// baseURL นี้ต้องตรงกับที่ตั้งใน Docker MinIO
 	baseURL := "http://localhost:9000/novel-buckets/"
 	return baseURL + imageName
+}
+
+func truncateContent(content string, maxLen int) string {
+	runes := []rune(content)
+	if len(runes) <= maxLen {
+		return content
+	}
+	return string(runes[:maxLen]) + "..."
 }
 
 func (s *sceneService) GetScene(sceneID int) (models.SceneResponse, error) {
@@ -104,6 +114,29 @@ func (s *sceneService) CreateScene(scene models.Scene) (int, error) {
 	return s.repo.CreateScene(scene)
 }
 
+func (s *sceneService) UpdateScene(scene models.Scene) error {
+	existing, err := s.repo.GetSceneByID(scene.SceneID)
+	if err != nil {
+		return err
+	}
+
+	if scene.Title != "" {
+		scene.Title = strings.TrimSpace(scene.Title)
+	} else {
+		scene.Title = existing.Title
+	}
+
+	if scene.Content == "" {
+		scene.Content = existing.Content
+	}
+
+	if scene.Type == "" {
+		scene.Type = existing.Type
+	}
+
+	return s.repo.UpdateScene(scene)
+}
+
 func (s *sceneService) CreateChoice(choice models.Choice) (int, error) {
 	choice.Label = strings.TrimSpace(choice.Label)
 
@@ -150,6 +183,138 @@ func (s *sceneService) CreateChoice(choice models.Choice) (int, error) {
 	return s.repo.CreateChoice(choice)
 }
 
+func (s *sceneService) UpdateChoice(choice models.Choice) error {
+	choice.Label = strings.TrimSpace(choice.Label)
+
+	if choice.FromSceneID == 0 {
+		existingChoice, err := s.repo.GetChoiceByID(choice.ChoiceID)
+		if err != nil {
+			return errors.New("ไม่พบทางเลือกที่ต้องการอัปเดต")
+		}
+		choice.FromSceneID = existingChoice.FromSceneID
+	}
+
+	fromScene, err := s.repo.GetSceneByID(choice.FromSceneID)
+	if err != nil {
+		return errors.New("ต้นทาง (from_scene_id) ไม่มีอยู่ในระบบ")
+	}
+	toScene, err := s.repo.GetSceneByID(choice.ToSceneID)
+	if err != nil {
+		return errors.New("ปลายทาง (to_scene_id) ไม่มีอยู่ในระบบ")
+	}
+
+	if fromScene.NovelID != toScene.NovelID {
+		return errors.New("ไม่สามารถเชื่อมโยงฉากข้ามเรื่องนิยายกันได้")
+	}
+	if choice.FromSceneID == choice.ToSceneID {
+		return errors.New("ฉากต้นทางและปลายทางห้ามเป็นฉากเดียวกัน")
+	}
+
+	return s.repo.UpdateChoice(choice)
+}
+
+func (s *sceneService) DeleteChoice(choiceID int) error {
+	return s.repo.DeleteChoice(choiceID)
+}
+
+func (s *sceneService) SyncSceneChoices(fromSceneID int, rawChoices []interface{}) error {
+	existingChoices, err := s.repo.GetChoicesBySceneID(fromSceneID)
+	if err != nil {
+		return err
+	}
+
+	incomingChoiceIDs := map[int]struct{}{}
+
+	for _, raw := range rawChoices {
+		choiceMap, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		var choice models.Choice
+		choice.FromSceneID = fromSceneID
+
+		if idVal, ok := choiceMap["choice_id"]; ok {
+			switch v := idVal.(type) {
+			case float64:
+				choice.ChoiceID = int(v)
+			case int:
+				choice.ChoiceID = v
+			case string:
+				if parsed, err := strconv.Atoi(v); err == nil {
+					choice.ChoiceID = parsed
+				}
+			}
+		} else if idVal, ok := choiceMap["id"]; ok {
+			switch v := idVal.(type) {
+			case float64:
+				choice.ChoiceID = int(v)
+			case int:
+				choice.ChoiceID = v
+			case string:
+				if parsed, err := strconv.Atoi(v); err == nil {
+					choice.ChoiceID = parsed
+				}
+			}
+		}
+
+		if labelVal, ok := choiceMap["label"]; ok {
+			choice.Label = strings.TrimSpace(fmt.Sprint(labelVal))
+		} else if textVal, ok := choiceMap["text"]; ok {
+			choice.Label = strings.TrimSpace(fmt.Sprint(textVal))
+		}
+
+		if toSceneID, ok := choiceMap["to_scene_id"]; ok {
+			switch v := toSceneID.(type) {
+			case float64:
+				choice.ToSceneID = int(v)
+			case int:
+				choice.ToSceneID = v
+			case string:
+				if parsed, err := strconv.Atoi(v); err == nil {
+					choice.ToSceneID = parsed
+				}
+			}
+		} else if targetSubScene, ok := choiceMap["targetSubScene"]; ok {
+			if str, ok := targetSubScene.(string); ok {
+				parts := strings.Split(str, "||")
+				if len(parts) == 2 {
+					if parsed, err := strconv.Atoi(parts[1]); err == nil {
+						choice.ToSceneID = parsed
+					}
+				}
+			}
+		}
+
+		if choice.ChoiceID > 0 {
+			incomingChoiceIDs[choice.ChoiceID] = struct{}{}
+			if err := s.UpdateChoice(choice); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// สร้างใหม่เฉพาะเมื่อมีข้อมูลปลายทางและข้อความตัวเลือก
+		if choice.Label == "" || choice.ToSceneID == 0 {
+			continue
+		}
+
+		if _, err := s.CreateChoice(choice); err != nil {
+			return err
+		}
+	}
+
+	for _, existing := range existingChoices {
+		if _, ok := incomingChoiceIDs[existing.ChoiceID]; !ok {
+			if err := s.DeleteChoice(existing.ChoiceID); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (s *sceneService) Ping() error {
 	return s.db.Ping()
 }
@@ -159,6 +324,44 @@ func (s *sceneService) GetStoryTree(novelID int, userID int) (models.StoryTreeRe
 	nodes, err := s.repo.GetNodesByNovelIDForUser(novelID, userID)
 	if err != nil {
 		return models.StoryTreeResponse{}, err
+	}
+
+	// 🟢 ดึงชื่อเรื่องนิยายและ Current Scene ID
+	var novelTitle string
+	var currentSceneID int
+
+	novelErr := s.db.QueryRow(
+		`SELECT novel_id, title FROM novels WHERE novel_id = $1`,
+		novelID,
+	).Scan(&novelID, &novelTitle)
+
+	if novelErr != nil && novelErr != sql.ErrNoRows {
+		return models.StoryTreeResponse{}, novelErr
+	}
+
+	// 🟢 ถ้ามี userID ให้ดึง current scene จาก reading progress
+	if userID > 0 {
+		_ = s.db.QueryRow(
+			`SELECT COALESCE(current_scene_id, 1) FROM reading_progress 
+			 WHERE user_id = $1 AND novel_id = $2`,
+			userID, novelID,
+		).Scan(&currentSceneID)
+	}
+
+	// ถ้ายังหา current scene ไม่ได้ ให้เอา start scene
+	if currentSceneID == 0 {
+		_ = s.db.QueryRow(
+			`SELECT scene_id FROM scenes WHERE novel_id = $1 AND type = 'start' LIMIT 1`,
+			novelID,
+		).Scan(&currentSceneID)
+	}
+
+	// ถ้าไม่มี user_id ส่งมา แปลว่าเรียกจากโหมด writer/preview
+	// ให้แสดงโหนดทั้งหมดเป็นปลดล็อก เพื่อให้ผู้เขียนดูโครงสร้างทั้งหมด
+	if userID <= 0 {
+		for i := range nodes {
+			nodes[i].IsUnlocked = true
+		}
 	}
 
 	// 2. 🟢 สร้าง Map เพื่อจดจำสถานะ (ประกาศตัวแปรที่นี่)
@@ -190,8 +393,59 @@ func (s *sceneService) GetStoryTree(novelID int, userID int) (models.StoryTreeRe
 		}
 	}
 
+	secureNodes := make([]models.SceneNode, 0, len(nodes))
+	for _, rawNode := range nodes {
+		isNodeAccessible := rawNode.IsUnlocked || rawNode.Type == "start"
+
+		node := models.SceneNode{
+			ID:           rawNode.ID,
+			Type:         rawNode.Type,
+			IsUnlocked:   isNodeAccessible,
+			ChapterTitle: rawNode.ChapterTitle,
+		}
+
+		if isNodeAccessible {
+			node.Label = rawNode.Label
+			if node.Label == "" {
+				node.Label = "จุดเริ่มต้นเนื้อเรื่อง"
+			}
+
+			node.Title = rawNode.Title
+			if node.Title == "" {
+				node.Title = "บทนำ / ซีนเปิดตัว"
+			}
+
+			if rawNode.Content != "" {
+				node.Content = truncateContent(rawNode.Content, 45)
+			} else {
+				node.Content = "ร่วมเลือกเส้นทางเพื่อดำเนินเนื้อเรื่องต่อไป..."
+			}
+
+			if rawNode.Type == "start" {
+				node.Status = "start"
+			} else if rawNode.Type == "ending" {
+				node.Status = "ending_unlocked"
+			} else {
+				node.Status = "unlocked"
+			}
+		} else {
+			node.Label = "🔒 ยังไม่ได้ปลดล็อก"
+			node.Title = "เนื้อเรื่องยังไม่เปิดเผย"
+			node.Content = "เดินเรื่องตามเงื่อนไขในฉากก่อนหน้าเพื่อเปิดเผยเส้นทางนี้"
+			if rawNode.Type == "ending" {
+				node.Status = "ending_locked"
+			} else {
+				node.Status = "locked"
+			}
+		}
+
+		secureNodes = append(secureNodes, node)
+	}
+
 	return models.StoryTreeResponse{
-		Nodes: nodes,
-		Edges: edges,
+		NovelTitle:     novelTitle,
+		CurrentSceneID: currentSceneID,
+		Nodes:          secureNodes,
+		Edges:          edges,
 	}, nil
 }
