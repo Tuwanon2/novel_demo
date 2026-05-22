@@ -246,6 +246,8 @@ function App() {
         <Route path="/storytree/:novelId" element={<StoryTreeRoute />} />
         <Route path="/reading/:novelId" element={<ReadingRoute />} />
         <Route path="/reading/:novelId/:sceneId" element={<ReadingRoute />} />
+        
+
 
         {/* Writer Routes */}
         <Route path="/writer/dashboard" element={<WriterDashboardRoute />} />

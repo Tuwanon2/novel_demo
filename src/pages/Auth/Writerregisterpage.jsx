@@ -14,6 +14,7 @@
 import React, { useState, useRef } from "react";
 import "./WriterRegisterPage.css";
 import { useNavigate } from "react-router-dom";
+import Navbar from "../../components/Navbar/Navbar";
 
 // ─────────────────────────────────────────────
 //  Constants
@@ -30,6 +31,38 @@ const GENRE_OPTIONS = [
     "สยองขวัญ", "ไซไฟ", "จิตวิกยา", "ระทึกขวัญ",
     "LGBTQ+", "มิตรภาพ", "สืบสวน",
 ];
+
+// ─────────────────────────────────────────────
+//  Cancel Confirmation Modal
+// ─────────────────────────────────────────────
+const CancelConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={onCancel}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>ยกเลิกการสมัครเป็นนักเขียน</h2>
+                    <button className="modal-close" onClick={onCancel}>×</button>
+                </div>
+                <div className="modal-body">
+                    <p>คุณแน่ใจที่จะยกเลิกการสมัครเป็นนักเขียนหรือไม่?</p>
+                    <p style={{ color: '#999', fontSize: '14px', marginTop: '10px' }}>
+                        ข้อมูลที่คุณกรอกไปแล้วจะไม่ถูกบันทึก
+                    </p>
+                </div>
+                <div className="modal-footer">
+                    <button className="modal-btn modal-btn--cancel" onClick={onCancel}>
+                        ตัวตนต่อ
+                    </button>
+                    <button className="modal-btn modal-btn--delete" onClick={onConfirm}>
+                        ยกเลิก
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // ─────────────────────────────────────────────
 //  Sub: Step indicator
@@ -249,7 +282,9 @@ const SummaryCard = ({ data }) => {
 //  Main Component
 // ══════════════════════════════════════════════════════════
 const WriterRegisterPage = ({ onComplete, onBack }) => {
+    const navigate = useNavigate();
     const [step, setStep] = useState(1);
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
     // ── Form data ──────────────────────────────────────────
     const [form, setForm] = useState({
@@ -322,8 +357,18 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
             setErrors({});
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
-            onBack?.();
+            setCancelModalOpen(true);
         }
+    };
+
+    // ── Handle Cancel ─────────────────────────────────────
+    const handleCancelConfirm = () => {
+        setCancelModalOpen(false);
+        navigate("/");
+    };
+
+    const handleCancelModal = () => {
+        setCancelModalOpen(false);
     };
 
     // ── Submit ────────────────────────────────────────────
@@ -339,226 +384,255 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
         setTimeout(() => {
             setIsSubmitting(false);
             alert("✅ สมัครเป็นนักเขียนสำเร็จ!");
-            navigate("/"); // เปลี่ยนจาก window.location.href
+            navigate("/");
             onComplete?.();
         }, 1000);
     };
 
-    const navigate = useNavigate(); // เพิ่มบรรทัดนี้
-
     // ════════════════════════════════════════════════════
     return (
-        <div className="wr-page">
-            {/* ── Page header ── */}
-            <div className="wr-header">
-                <h1 className="wr-header__title">สมัครเป็นนักเขียน</h1>
-                <p className="wr-header__sub">กรอกข้อมูลเพื่อยืนยันตัวตนของคุณในฐานะนักเขียน</p>
-            </div>
+        <>
+            <Navbar />
+            <div className="wr-page">
+              {/* ──────────────────────────────────────
+          Page Header with Cancel Button
+          ────────────────────────────────────── */}
+              <div className="wr-header-wrapper">
+                <div className="wr-header">
+                  <h1 className="wr-header__title">สมัครเป็นนักเขียน</h1>
+                  <p className="wr-header__sub">กรอกข้อมูลเพื่อยืนยันตัวตนของคุณในฐานะนักเขียน</p>
+                </div>
+                <button 
+                  className="wr-cancel-btn"
+                  onClick={() => setCancelModalOpen(true)}
+                  title="ยกเลิกการสมัครเป็นนักเขียน"
+                >
+                  ✕ ยกเลิก
+                </button>
+              </div>
 
-            {/* ── Step indicator ── */}
-            <StepIndicator current={step} />
+              {/* ── Step indicator ── */}
+              <StepIndicator current={step} />
 
-            {/* ══════════════════════════════════════
-          STEP 1: ข้อมูลส่วนตัว
-      ══════════════════════════════════════ */}
-            {step === 1 && (
+              {/* ══════════════════════════════════════
+              STEP 1: ข้อมูลส่วนตัว
+          ══════════════════════════════════════ */}
+              {step === 1 && (
                 <div className="wr-step-content wr-step-content--split">
-                    {/* Left: avatar upload */}
-                    <div className="wr-step-left">
-                        <AvatarUpload
-                            preview={form.avatarPreview}
-                            onChange={(file, url) => { setField("avatarFile", file); setField("avatarPreview", url); }}
-                        />
+                  {/* Left: avatar upload */}
+                  <div className="wr-step-left">
+                    <AvatarUpload
+                      preview={form.avatarPreview}
+                      onChange={(file, url) => { setField("avatarFile", file); setField("avatarPreview", url); }}
+                    />
+                  </div>
+
+                  {/* Right: form card */}
+                  <div className="wr-card">
+                    <h2 className="wr-card__title">ข้อมูลส่วนตัว</h2>
+
+                    <div className="wr-field">
+                      <label className="wr-label" htmlFor="fullName">ชื่อ - นามสกุล</label>
+                      <div className={`wr-input-wrap ${errors.fullName ? "wr-input-wrap--error" : ""}`}>
+                        <input id="fullName" className="wr-input" type="text"
+                          placeholder="กรอกชื่อ - นามสกุลของคุณ"
+                          value={form.fullName}
+                          onChange={(e) => setField("fullName", e.target.value)} />
+                      </div>
+                      {errors.fullName && <p className="wr-field__error" role="alert">{errors.fullName}</p>}
                     </div>
 
-                    {/* Right: form card */}
-                    <div className="wr-card">
-                        <h2 className="wr-card__title">ข้อมูลส่วนตัว</h2>
-
-                        <div className="wr-field">
-                            <label className="wr-label" htmlFor="fullName">ชื่อ - นามสกุล</label>
-                            <div className={`wr-input-wrap ${errors.fullName ? "wr-input-wrap--error" : ""}`}>
-                                <input id="fullName" className="wr-input" type="text"
-                                    placeholder="กรอกชื่อ - นามสกุลของคุณ"
-                                    value={form.fullName}
-                                    onChange={(e) => setField("fullName", e.target.value)} />
-                            </div>
-                            {errors.fullName && <p className="wr-field__error" role="alert">{errors.fullName}</p>}
-                        </div>
-
-                        <div className="wr-field">
-                            <label className="wr-label" htmlFor="penName">นามปากกา</label>
-                            <div className={`wr-input-wrap ${errors.penName ? "wr-input-wrap--error" : ""}`}>
-                                <input id="penName" className="wr-input" type="text"
-                                    placeholder="กรอกนามปากกา"
-                                    value={form.penName}
-                                    onChange={(e) => setField("penName", e.target.value)} />
-                            </div>
-                            {errors.penName && <p className="wr-field__error" role="alert">{errors.penName}</p>}
-                        </div>
-
-                        <div className="wr-field">
-                            <label className="wr-label" htmlFor="email">อีเมล</label>
-                            <div className={`wr-input-wrap ${errors.email ? "wr-input-wrap--error" : ""}`}>
-                                <input id="email" className="wr-input" type="email"
-                                    placeholder="กรอกอีเมล"
-                                    value={form.email}
-                                    onChange={(e) => setField("email", e.target.value)} />
-                            </div>
-                            {errors.email && <p className="wr-field__error" role="alert">{errors.email}</p>}
-                        </div>
-
-                        <div className="wr-card__footer wr-card__footer--right">
-                            <button className="wr-btn wr-btn--primary" onClick={handleNext}>ถัดไป</button>
-                        </div>
+                    <div className="wr-field">
+                      <label className="wr-label" htmlFor="penName">นามปากกา</label>
+                      <div className={`wr-input-wrap ${errors.penName ? "wr-input-wrap--error" : ""}`}>
+                        <input id="penName" className="wr-input" type="text"
+                          placeholder="กรอกนามปากกา"
+                          value={form.penName}
+                          onChange={(e) => setField("penName", e.target.value)} />
+                      </div>
+                      {errors.penName && <p className="wr-field__error" role="alert">{errors.penName}</p>}
                     </div>
+
+                    <div className="wr-field">
+                      <label className="wr-label" htmlFor="email">อีเมล</label>
+                      <div className={`wr-input-wrap ${errors.email ? "wr-input-wrap--error" : ""}`}>
+                        <input id="email" className="wr-input" type="email"
+                          placeholder="กรอกอีเมล"
+                          value={form.email}
+                          onChange={(e) => setField("email", e.target.value)} />
+                      </div>
+                      {errors.email && <p className="wr-field__error" role="alert">{errors.email}</p>}
+                    </div>
+
+                    <div className="wr-card__footer wr-card__footer--right">
+                      <button className="wr-btn wr-btn--primary" onClick={handleNext}>ถัดไป</button>
+                    </div>
+                  </div>
                 </div>
-            )}
+              )}
 
-            {/* ══════════════════════════════════════
-          STEP 2: แนะนำตัว
-      ══════════════════════════════════════ */}
-            {step === 2 && (
+              {/* ══════════════════════════════════════
+              STEP 2: แนะนำตัว
+          ══════════════════════════════════════ */}
+              {step === 2 && (
                 <div className="wr-step-content">
-                    <h2 className="wr-section-title">แนะนำตัว</h2>
+                  <h2 className="wr-section-title">แนะนำตัว</h2>
 
-                    <div className="wr-field">
-                        <label className="wr-label" htmlFor="bio">แนะนำเกี่ยวกับคุณ</label>
-                        <div className={`wr-input-wrap ${errors.bio ? "wr-input-wrap--error" : ""}`}>
-                            <textarea id="bio" className="wr-textarea"
-                                placeholder="อธิบายความเป็นตัวคุณหรือผลงานของคุณสั้นๆ...."
-                                rows={5}
-                                value={form.bio}
-                                onChange={(e) => setField("bio", e.target.value)} />
-                        </div>
-                        {errors.bio && <p className="wr-field__error" role="alert">{errors.bio}</p>}
+                  <div className="wr-field">
+                    <label className="wr-label" htmlFor="bio">แนะนำเกี่ยวกับคุณ</label>
+                    <div className={`wr-input-wrap ${errors.bio ? "wr-input-wrap--error" : ""}`}>
+                      <textarea id="bio" className="wr-textarea"
+                        placeholder="อธิบายความเป็นตัวคุณหรือผลงานของคุณสั้นๆ...."
+                        rows={5}
+                        value={form.bio}
+                        onChange={(e) => setField("bio", e.target.value)} />
                     </div>
+                    {errors.bio && <p className="wr-field__error" role="alert">{errors.bio}</p>}
+                  </div>
 
-                    <div className="wr-field">
-                        <label className="wr-label">ประเภทนิยายที่แต่ง (เลือกได้มากกว่า 1 ประเภท)</label>
-                        <GenrePills selected={form.genres} onChange={(val) => setField("genres", val)} />
-                        {errors.genres && <p className="wr-field__error" role="alert">{errors.genres}</p>}
-                    </div>
+                  <div className="wr-field">
+                    <label className="wr-label">ประเภทนิยายที่แต่ง (เลือกได้มากกว่า 1 ประเภท)</label>
+                    <GenrePills selected={form.genres} onChange={(val) => setField("genres", val)} />
+                    {errors.genres && <p className="wr-field__error" role="alert">{errors.genres}</p>}
+                  </div>
 
-                    <div className="wr-step-nav">
-                        <button className="wr-btn wr-btn--outline" onClick={handlePrev}>ย้อนกลับ</button>
-                        <button className="wr-btn wr-btn--primary" onClick={handleNext}>ถัดไป</button>
-                    </div>
+                  <div className="wr-step-nav">
+                    <button className="wr-btn wr-btn--outline" onClick={handlePrev}>ย้อนกลับ</button>
+                    <button className="wr-btn wr-btn--primary" onClick={handleNext}>ถัดไป</button>
+                  </div>
                 </div>
-            )}
+              )}
 
-            {/* ══════════════════════════════════════
-    STEP 3: ช่องทางติดต่อ
-══════════════════════════════════════ */}
-            {step === 3 && (
-                <div className="wr-step-content">
-                    <h2 className="wr-section-title">ช่องทางติดต่อ</h2>
-
-                    {/* ช่องทางหลัก (บังคับกรอก) */}
-                    <div className="wr-field">
-                        <label className="wr-label" htmlFor="mainContact">
-                            ช่องทางติดต่อหลัก
-                        </label>
-
-                        <div
-                            className={`wr-input-wrap ${errors.mainContact ? "wr-input-wrap--error" : ""
-                                }`}
-                        >
-                            <input
-                                id="mainContact"
-                                className="wr-input"
-                                type="text"
-                                placeholder="แนบลิงก์เฟสบุ๊ค/อินสตาแกรม/ทวิตเตอร์"
-                                value={form.mainContact}
-                                onChange={(e) => setField("mainContact", e.target.value)}
-                            />
-                        </div>
-
-                        {errors.mainContact && (
-                            <p className="wr-field__error" role="alert">
-                                {errors.mainContact}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* ช่องทางอื่นๆ */}
-                    <div className="wr-field" style={{ marginTop: 20 }}>
-                        <label className="wr-label" htmlFor="otherLinks">
-                            ช่องทางอื่นๆ
-                        </label>
-
-                        <div className="wr-input-wrap">
-                            <textarea
-                                id="otherLinks"
-                                className="wr-textarea wr-textarea--sm"
-                                placeholder="แนบลิงก์ (ไม่บังคับ)"
-                                rows={4}
-                                value={form.otherLinks}
-                                onChange={(e) => setField("otherLinks", e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="wr-step-nav">
-                        <button
-                            className="wr-btn wr-btn--outline"
-                            onClick={handlePrev}
-                        >
-                            ย้อนกลับ
-                        </button>
-
-                        <button
-                            className="wr-btn wr-btn--primary"
-                            onClick={handleNext}
-                        >
-                            ถัดไป
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* ══════════════════════════════════════
-             STEP 4: ยืนยันข้อมูล
+              {/* ══════════════════════════════════════
+                STEP 3: ช่องทางติดต่อ
             ══════════════════════════════════════ */}
-            {step === 4 && (
+              {step === 3 && (
                 <div className="wr-step-content">
-                    <div className="wr-confirm-header">
-                        <h2 className="wr-section-title">ยืนยันข้อมูล</h2>
-                        <p className="wr-confirm-sub">ตรวจสอบข้อมูลของคุณ</p>
+                  <h2 className="wr-section-title">ช่องทางติดต่อ</h2>
+
+                  {/* ช่องทางหลัก (บังคับกรอก) */}
+                  <div className="wr-field">
+                    <label className="wr-label" htmlFor="mainContact">
+                      ช่องทางติดต่อหลัก
+                    </label>
+
+                    <div
+                      className={`wr-input-wrap ${errors.mainContact ? "wr-input-wrap--error" : ""
+                        }`}
+                    >
+                      <input
+                        id="mainContact"
+                        className="wr-input"
+                        type="text"
+                        placeholder="แนบลิงก์เฟสบุ๊ค/อินสตาแกรม/ทวิตเตอร์"
+                        value={form.mainContact}
+                        onChange={(e) => setField("mainContact", e.target.value)}
+                      />
                     </div>
 
-                    <SummaryCard data={form} />
+                    {errors.mainContact && (
+                      <p className="wr-field__error" role="alert">
+                        {errors.mainContact}
+                      </p>
+                    )}
+                  </div>
 
-                    {/* Confirm checkbox */}
-                    <div className="wr-confirm-check" style={{ marginTop: 20 }}>
-                        <label className="wr-checkbox" htmlFor="confirmed">
-                            <input
-                                id="confirmed"
-                                type="checkbox"
-                                className="wr-checkbox__input"
-                                checked={form.confirmed}
-                                onChange={(e) => setField("confirmed", e.target.checked)}
-                            />
-                            <span className={`wr-checkbox__box ${form.confirmed ? "wr-checkbox__box--checked" : ""}`} />
-                            <span className="wr-checkbox__label">ฉันยอมรับข้อมูลที่ให้ไว้เป็นความจริง</span>
-                        </label>
-                        {errors.confirmed && <p className="wr-field__error" role="alert">{errors.confirmed}</p>}
-                    </div>
+                  {/* ช่องทางอื่นๆ */}
+                  <div className="wr-field" style={{ marginTop: 20 }}>
+                    <label className="wr-label" htmlFor="otherLinks">
+                      ช่องทางอื่นๆ
+                    </label>
 
-                    <div className="wr-step-nav">
-                        <button className="wr-btn wr-btn--outline" onClick={handlePrev}>ย้อนกลับ</button>
-                        <button
-                            className="wr-btn wr-btn--primary"
-                            onClick={handleNext}
-                            disabled={isSubmitting}
-                            aria-busy={isSubmitting}
-                        >
-                            {isSubmitting ? <span className="wr-spinner" /> : "ถัดไป"}
-                        </button>
+                    <div className="wr-input-wrap">
+                      <textarea
+                        id="otherLinks"
+                        className="wr-textarea wr-textarea--sm"
+                        placeholder="แนบลิงก์ (ไม่บังคับ)"
+                        rows={4}
+                        value={form.otherLinks}
+                        onChange={(e) => setField("otherLinks", e.target.value)}
+                      />
                     </div>
+                  </div>
+
+                  <div className="wr-step-nav">
+                    <button
+                      className="wr-btn wr-btn--outline"
+                      onClick={handlePrev}
+                    >
+                      ย้อนกลับ
+                    </button>
+
+                    <button
+                      className="wr-btn wr-btn--primary"
+                      onClick={handleNext}
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
                 </div>
-            )}
-        </div>
+              )}
+
+              {/* ══════════════════════════════════════
+                 STEP 4: ยืนยันข้อมูล (with Cancel Button)
+                ══════════════════════════════════════ */}
+              {step === 4 && (
+                <div className="wr-step-content">
+                  {/* Header with Cancel Button */}
+                  <div className="wr-confirm-header-wrapper">
+                    <div className="wr-confirm-header">
+                      <h2 className="wr-section-title">ยืนยันข้อมูล</h2>
+                      <p className="wr-confirm-sub">ตรวจสอบข้อมูลของคุณ</p>
+                    </div>
+                    <button 
+                      className="wr-cancel-btn"
+                      onClick={() => setCancelModalOpen(true)}
+                      title="ยกเลิกการสมัครเป็นนักเขียน"
+                    >
+                      ✕ ยกเลิก
+                    </button>
+                  </div>
+
+                  <SummaryCard data={form} />
+
+                  {/* Confirm checkbox */}
+                  <div className="wr-confirm-check" style={{ marginTop: 20 }}>
+                    <label className="wr-checkbox" htmlFor="confirmed">
+                      <input
+                        id="confirmed"
+                        type="checkbox"
+                        className="wr-checkbox__input"
+                        checked={form.confirmed}
+                        onChange={(e) => setField("confirmed", e.target.checked)}
+                      />
+                      <span className={`wr-checkbox__box ${form.confirmed ? "wr-checkbox__box--checked" : ""}`} />
+                      <span className="wr-checkbox__label">ฉันยอมรับข้อมูลที่ให้ไว้เป็นความจริง</span>
+                    </label>
+                    {errors.confirmed && <p className="wr-field__error" role="alert">{errors.confirmed}</p>}
+                  </div>
+
+                  <div className="wr-step-nav">
+                    <button className="wr-btn wr-btn--outline" onClick={handlePrev}>ย้อนกลับ</button>
+                    <button
+                      className="wr-btn wr-btn--primary"
+                      onClick={handleNext}
+                      disabled={isSubmitting}
+                      aria-busy={isSubmitting}
+                    >
+                      {isSubmitting ? <span className="wr-spinner" /> : "ยืนยัน"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancel Confirmation Modal */}
+              <CancelConfirmModal
+                isOpen={cancelModalOpen}
+                onConfirm={handleCancelConfirm}
+                onCancel={handleCancelModal}
+              />
+            </div>
+        </>
     );
 };
 
