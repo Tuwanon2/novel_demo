@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -19,14 +18,16 @@ type MediaRepository interface {
 }
 
 type MinIOMediaRepository struct {
-	client   *minio.Client
-	endpoint string
+	client         *minio.Client
+	endpoint       string
+	publicEndpoint string // URL ที่ frontend สามารถเข้าถึงได้
 }
 
 func NewMinIOMediaRepository(client *minio.Client, endpoint string) MediaRepository {
 	return &MinIOMediaRepository{
-		client:   client,
-		endpoint: endpoint,
+		client:         client,
+		endpoint:       endpoint,
+		publicEndpoint: "localhost:9000", // ค่าเริ่มต้นให้ frontend สามารถเข้าถึง
 	}
 }
 
@@ -53,9 +54,8 @@ func (m *MinIOMediaRepository) UploadFile(ctx context.Context, bucketName, objec
 		return "", fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	// สร้าง URL จาก endpoint ที่กำหนดใน config
-	endpoint := strings.TrimPrefix(strings.TrimPrefix(m.endpoint, "http://"), "https://")
-	url := fmt.Sprintf("http://%s/%s/%s", endpoint, bucketName, objectName)
+	// สร้าง URL จาก publicEndpoint ให้ frontend สามารถเข้าถึง (แทนการใช้ internal endpoint)
+	url := fmt.Sprintf("http://%s/%s/%s", m.publicEndpoint, bucketName, objectName)
 	return url, nil
 }
 
