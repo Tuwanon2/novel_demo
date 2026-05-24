@@ -234,6 +234,46 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
 
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [writerAppStatus, setWriterAppStatus] = useState("none");
+    const [writerAppLoading, setWriterAppLoading] = useState(true);
+    const [writerAppError, setWriterAppError] = useState(null);
+
+    useEffect(() => {
+        const fetchWriterApplication = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setWriterAppLoading(false);
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/writers/me`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        setWriterAppStatus("none");
+                    } else {
+                        const data = await res.json().catch(() => ({}));
+                        throw new Error(data.message || data.error || `HTTP ${res.status}`);
+                    }
+                } else {
+                    const data = await res.json();
+                    setWriterAppStatus(data.status || "none");
+                }
+            } catch (err) {
+                console.error("Failed to load writer application status:", err);
+                setWriterAppError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการตรวจสอบสถานะคำขอ");
+            } finally {
+                setWriterAppLoading(false);
+            }
+        };
+
+        fetchWriterApplication();
+    }, []);
 
     // ── 🛡️ Guard Section: ปิดตัวดักสิทธิ์ชั่วคราวเพื่อใช้ในการทดสอบ ──
     useEffect(() => {
@@ -322,6 +362,16 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
     };
 
     const handleSubmit = async () => {
+        if (writerAppStatus === "pending") {
+            alert("คุณได้ยื่นคำขอเป็นนักเขียนแล้ว กรุณารอการอนุมัติหรือปฏิเสธก่อนสมัครใหม่");
+            return;
+        }
+        if (writerAppStatus === "approved") {
+            alert("คำขอของคุณได้รับการอนุมัติแล้ว ไม่สามารถสมัครใหม่ได้อีก");
+            navigate("/writer/dashboard");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const token = localStorage.getItem("token");
@@ -364,8 +414,25 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
         }
     };
 
-    if (checkingAuth) {
-        return <div className="wr-loading">กำลังตรวจสอบสิทธิ์...</div>;
+    if (checkingAuth || writerAppLoading) {
+        return <div className="wr-loading">กำลังตรวจสอบสิทธิ์และสถานะคำขอ...</div>;
+    }
+
+    if (writerAppStatus === "approved") {
+        return (
+            <div className="wr-page">
+                <div className="wr-header-wrapper">
+                    <div className="wr-header">
+                        <h1 className="wr-header__title">คุณได้รับอนุมัติแล้ว</h1>
+                        <p className="wr-header__sub">คุณสามารถเข้าสู่ระบบและใช้งานพื้นที่นักเขียนได้ทันที</p>
+                    </div>
+                </div>
+                <div className="wr-card">
+                    <p>คำขอสมัครนักเขียนของคุณได้รับการอนุมัติแล้ว ไม่สามารถยื่นคำขอซ้ำได้อีก</p>
+                    <button type="button" className="wr-btn wr-btn--primary" onClick={() => navigate("/writer/dashboard")}>ไปที่ Writer Dashboard</button>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -386,6 +453,18 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
                         ✕ ยกเลิก
                     </button>
                 </div>
+
+                {writerAppStatus === "pending" && (
+                    <div className="wr-form-notice wr-form-notice--warning">
+                        คุณได้ส่งคำขอสมัครเป็นนักเขียนไปแล้ว กรุณารอแอดมินอนุมัติหรือปฏิเสธก่อนสมัครใหม่
+                    </div>
+                )}
+
+                {writerAppStatus === "rejected" && (
+                    <div className="wr-form-notice wr-form-notice--info">
+                        คำขอครั้งก่อนถูกปฏิเสธ คุณสามารถแก้ข้อมูลและยื่นสมัครใหม่ได้
+                    </div>
+                )}
 
                 <StepIndicator current={step} />
 
@@ -554,7 +633,7 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
                                 type="button"
                                 className="wr-btn wr-btn--primary"
                                 onClick={handleNext}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || writerAppStatus === "pending" || writerAppStatus === "approved"}
                                 aria-busy={isSubmitting}
                             >
                                 {isSubmitting ? <span className="wr-spinner" /> : "ยืนยัน"}

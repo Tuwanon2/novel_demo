@@ -1,6 +1,6 @@
 // src/pages/Writer/ChapterManager/ChapterManagerPage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import "./Chaptermanagerpage.css";
 
@@ -340,6 +340,7 @@ const SceneCard = ({
   const sceneId = scene?.id ?? scene?.ID ?? scene?.scene_id ?? scene?.SceneID;
   const sceneTitle = scene?.title ?? scene?.Title ?? `ฉากย่อยที่ ${sceneIndex}`;
   const sceneContent = scene?.content ?? scene?.Content ?? "";
+  const sceneRef = useRef(null);
 
   // 🎯 แก้ไขบั๊กบรรทัดที่ 197: ครอบวงเล็บป้องกัน Oxc Parse Error จากการผสม ?? และ ||
   const sceneChoices = (scene?.choices ?? scene?.Choices) || [];
@@ -376,6 +377,9 @@ const SceneCard = ({
       return;
     }
 
+    const previousScrollTop = typeof window !== "undefined" ? window.scrollY : 0;
+    const previousScrollLeft = typeof window !== "undefined" ? window.scrollX : 0;
+
     try {
       const res = await fetch(`${API_BASE}/choices`, {
         method: "POST",
@@ -389,7 +393,12 @@ const SceneCard = ({
           label: "ทางเลือกใหม่"
         })
       });
-      if (res.ok) fetchScenes();
+      if (res.ok) {
+        await fetchScenes();
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: previousScrollTop, left: previousScrollLeft, behavior: "auto" });
+        }
+      }
     } catch (err) {
       console.error("สร้างตัวเลือกพล็อตล้มเหลว:", err);
     }
@@ -439,7 +448,7 @@ const SceneCard = ({
   };
 
   return (
-    <div className="cm-scene">
+    <div className="cm-scene" ref={sceneRef}>
       <div className="cm-scene__header">
         <div className="cm-scene__num">{chapterNumber}.{sceneIndex}</div>
         <div className="cm-scene__info">
@@ -497,7 +506,7 @@ const SceneCard = ({
           />
         ))}
 
-        <button className="cm-btn cm-btn--add-choice" onClick={handleAddChoice}>
+        <button className="cm-btn cm-btn--add-choice" type="button" onClick={handleAddChoice}>
           ➕ เพิ่มตัวเลือกใหม่
         </button>
       </div>

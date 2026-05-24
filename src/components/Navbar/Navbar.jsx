@@ -216,9 +216,7 @@ const Navbar = () => {
                                         <hr className="nav-dropdown__divider" />
                                         
                                         {/* 🎯 ทางลัดเพิ่มเติมภายใน Dropdown โปรไฟล์ */}
-                                        <button type="button" className="nav-dropdown__link-btn" onClick={() => { navigate(isWriterMode ? "/" : "/writer/dashboard"); setIsDropdownOpen(false); }}>
-                                            {isWriterMode ? "📖 เข้าสู่หน้าหลักนักอ่าน" : "✍️ เข้าสู่สตูดิโอนักเขียน"}
-                                        </button>
+                                       
                                         
                                         <hr className="nav-dropdown__divider" />
                                         <button type="button" className="nav-dropdown__logout-btn" onClick={handleLogout}>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // 👈 นำเข้าเครื่องมือดึงค่าจาก URL และสลับหน้าจอ
+import { useParams, useNavigate } from "react-router-dom"; 
 import "./ReadingPage.css";
 import ReadingBreadcrumb from "../../../components/ReadingBreadcrumb/ReadingBreadcrumb";
 import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
 
-const BASE_URL = "http://localhost:8080"; // 👈 พอร์ตเซิร์ฟเวอร์ Go หลังบ้าน (app-1) ใน Docker
+const BASE_URL = "http://localhost:8080"; 
 
 const ReadingPage = ({
   userId = 1, // ชั่วคราวก่อนทำระบบล็อกอิน
@@ -14,10 +14,7 @@ const ReadingPage = ({
   const { novelId, sceneId } = useParams();
   const navigate = useNavigate();
 
-  // สลับมุมมองหน้าจออ่าน หรือ ดู Tree
   const [currentView, setCurrentView] = useState("reading");
-
-  // เก็บ ID ของ ฉาก (Scene) ปัจจุบันตามระบบ Branching (ยึดตามที่ส่งมาจาก URL ก่อน)
   const [currentSceneId, setCurrentSceneId] = useState(sceneId || null);
   const [sceneData, setSceneData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,12 +25,48 @@ const ReadingPage = ({
   const [selectedChoiceId, setSelectedChoiceId] = useState(null);
   const contentRef = useRef(null);
 
-  // ดักจับกรณีที่ URL เปลี่ยนแปลง (เช่น ผู้ใช้อ่านกิ่งถัดไป หรือกดเปลี่ยนเส้นทาง)
   useEffect(() => {
     if (sceneId) {
       setCurrentSceneId(sceneId);
     }
   }, [sceneId]);
+
+  // ==========================================
+  // 🌟 ฟังก์ชันใหม่: อัปเดต Progress และปลดล็อกฉาก
+  // ==========================================
+  const updateReadingProgress = async (nId, sId, sceneType) => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      // 1. บันทึกพิกัดปัจจุบันและปลดล็อกเส้นทางในตาราง history
+      await fetch(`${BASE_URL}/progress`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          user_id: parseInt(userId),
+          novel_id: parseInt(nId),
+          scene_id: parseInt(sId)
+        })
+      });
+
+      // 2. ถ้าฉากนี้เป็นจุดจบ (Ending) ให้ยิงไปบันทึกลง user_endings ด้วย
+      if (sceneType === "ending" || sceneType === "Ending") {
+        await fetch(`${BASE_URL}/user-endings`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            user_id: parseInt(userId),
+            novel_id: parseInt(nId),
+            scene_id: parseInt(sId)
+          })
+        });
+      }
+    } catch (err) {
+      console.error("❌ ไม่สามารถอัปเดตความคืบหน้าการอ่านได้:", err);
+    }
+  };
 
   // ==========================================
   // 🔄 FETCH ข้อมูลจาก GO API
@@ -66,9 +99,15 @@ const ReadingPage = ({
 
         if (resData && resData.data) {
           setSceneData(resData.data);
+          const loadedSceneId = resData.data.scene_id || resData.data.id;
+          
           if (!currentSceneId) {
-            setCurrentSceneId(resData.data.scene_id || resData.data.id);
+            setCurrentSceneId(loadedSceneId);
           }
+
+          // 🎯 เรียกใช้ฟังก์ชันอัปเดตทันทีที่โหลดฉากใหม่เสร็จ!
+          updateReadingProgress(novelId, loadedSceneId, resData.data.type);
+
         } else {
           throw new Error("รูปแบบข้อมูลที่หลังบ้านส่งมาไม่ถูกต้อง");
         }
@@ -110,20 +149,19 @@ const ReadingPage = ({
     try {
       const token = localStorage.getItem("token");
       const headers = { "Content-Type": "application/json" };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      // บันทึกทางเลือกลง user_choice_history
       await fetch(`${BASE_URL}/choice-history`, {
         method: "POST",
         headers,
         body: JSON.stringify({
-          user_id: userId,
-          choice_id: choice.choice_id
+          user_id: parseInt(userId),
+          choice_id: parseInt(choice.choice_id)
         })
       });
     } catch (err) {
-      console.error("บันทึกประวัติการเลือกเลือกฟลอป:", err);
+      console.error("บันทึกประวัติการเลือกทางเลือกผิดพลาด:", err);
     }
 
     setTimeout(() => {
@@ -167,13 +205,9 @@ const ReadingPage = ({
     );
   }
 
-  // 🎯 แกะตัวแปรจาก Database
   const { content, choices, type, novel_title, chapter_title, scene_title, chapter_order, order } = sceneData;
-
-  // 🎯 ดักจับตัวเลขลำดับตอน (มองหาเผื่อไว้ทั้งชื่อ chapter_order และ order เผื่อหลังบ้านส่งคีย์ไม่เหมือนกัน)
   const currentOrder = chapter_order || order || null;
 
-  // 🏷️ ฟังก์ชันช่วยแปลงข้อมูล 'type' ให้เป็นข้อความ Tag สวยๆ บนหน้าจอ
   const getSceneTagDetails = (sceneType) => {
     switch (sceneType) {
       case "start":
@@ -206,22 +240,15 @@ const ReadingPage = ({
 
         <article className={`rp__article ${isTransitioning ? "rp__article--out" : "rp__article--in"}`} ref={contentRef}>
 
-          {/* ------------------------------------------------------------- */}
-          {/* 🎯 โซนแสดงหัวข้อแบ่งจัดเต็มตามความต้องการ 3 แถวตรงตัวล็อก */}
-          {/* ------------------------------------------------------------- */}
           <div className="rp__header-group" style={{ textAlign: "center", marginBottom: "25px" }}>
-
-            {/* แถวที่ 1 บนสุด: แสดงชื่อเรื่องนิยายหลัก */}
             <div className="rp__novel-subtitle" style={{ fontSize: "1.1rem", color: "#666", marginBottom: "6px" }}>
               เรื่อง : {novel_title || novelTitle}
             </div>
 
-            {/* แถวที่ 2 ตรงกลาง: แสดงชื่อฉาก/เนื้อเรื่องย่อย (ตัวใหญ่สะใจสายตาคนอ่าน) */}
             <h1 className="rp__title" style={{ fontSize: "2.2rem", fontWeight: "bold", margin: "10px 0", color: "#111" }}>
               {scene_title || (type === "start" ? "จุดเริ่มต้นการเดินทาง" : "ดำเนินเรื่องย่อย")}
             </h1>
 
-            {/* แถวที่ 3 เล็กลงมา: แสดงคำว่า "ตอนที่ [เลข] : [ชื่อตอน]" และ ป้าย Tag ประเภทเนื้อเรื่อง */}
             <div className="rp__scene-meta" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontSize: "1.05rem", color: "#555", marginTop: "15px", flexWrap: "wrap" }}>
               <span style={{ color: "#4a5568", fontWeight: "600" }}>
                 📂 {currentOrder ? `ตอนที่ ${currentOrder} : ` : "ตอน : "} 
@@ -230,7 +257,6 @@ const ReadingPage = ({
               
               <span style={{ color: "#ccc" }}>|</span>
               
-              {/* 🎯 ป้าย Tag แสดงประเภทฉากย่อย */}
               <span style={{ 
                 backgroundColor: tag.bg, 
                 color: tag.color, 
@@ -243,11 +269,8 @@ const ReadingPage = ({
                 {tag.text}
               </span>
             </div>
-
           </div>
-          {/* ------------------------------------------------------------- */}
 
-          {/* เส้นคั่นลายประดับพุ่มไม้/ดาว */}
           <div className="rp__ornament" aria-hidden="true">
             <span className="rp__orn-line" />
             <span className="rp__orn-dot">✦</span>
@@ -256,14 +279,12 @@ const ReadingPage = ({
             <span className="rp__orn-line" />
           </div>
 
-          {/* แสดงเนื้อหาจริงจากระบบฐานข้อมูล */}
           <div
             className="rp__body"
             aria-label="เนื้อหา"
             dangerouslySetInnerHTML={{ __html: content }}
           />
 
-          {/* ปุ่มตัวเลือกเส้นทางกิ่งก้าน (Choices) จากหลังบ้าน */}
           {choices && choices.length > 0 && (
             <ChoiceButtons
               prompt="คุณจะเลือกเส้นทางดำเนินเรื่องอย่างไรต่อไป?"
@@ -278,7 +299,6 @@ const ReadingPage = ({
             />
           )}
 
-          {/* กรณีจบสมบูรณ์แบบ แตกแขนงไปต่อไม่ได้แล้ว */}
           {(!choices || choices.length === 0) && (
             <div className="rp__ending">
               <div className="rp__ending-icon" aria-hidden="true">🏆</div>

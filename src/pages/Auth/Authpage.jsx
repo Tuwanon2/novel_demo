@@ -423,8 +423,8 @@ const RegisterForm = ({ onSwitchToLogin }) => {
       }
       
       setIsLoading(false);
-      console.log("🏁 Registration workflow completed. Redirecting to home...");
-      window.location.href = '/';
+      console.log("🏁 Registration workflow completed. Switching to login tab...");
+      onSwitchToLogin();
     } catch (err) {
       console.error("💥 CRITICAL CATCH: Register process threw an exception:", err);
       setErrors({ general: `ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ${err.message}` });
