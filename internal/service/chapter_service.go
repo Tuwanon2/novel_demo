@@ -24,3 +24,7 @@ func (s *chapterService) GetChapterByID(id int) (*models.Chapter, error) {
 func (s *chapterService) CreateChapter(chapter models.Chapter) (int, error) {
 	return s.repo.CreateChapter(chapter)
 }
+
+func (s *chapterService) UpdateChapter(chapter models.Chapter) error {
+	return s.repo.UpdateChapter(chapter)
+}

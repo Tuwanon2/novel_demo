@@ -63,6 +63,10 @@ func (r *postgresNovelRepository) CreateNovel(novel models.Novel) (int, error) {
 	return CreateNovel(r.db, novel)
 }
 
+func (r *postgresNovelRepository) UpdateNovel(novel models.Novel) error {
+	return UpdateNovel(r.db, novel)
+}
+
 func (r *postgresNovelRepository) DeleteNovel(id int) error {
 	return DeleteNovel(r.db, id)
 }
@@ -125,6 +129,10 @@ func (r *postgresChapterRepository) GetChapterByID(id int) (*models.Chapter, err
 
 func (r *postgresChapterRepository) CreateChapter(chapter models.Chapter) (int, error) {
 	return CreateChapter(r.db, chapter)
+}
+
+func (r *postgresChapterRepository) UpdateChapter(chapter models.Chapter) error {
+	return UpdateChapter(r.db, chapter)
 }
 
 // ======= Social Repository Methods =======

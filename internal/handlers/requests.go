@@ -26,6 +26,23 @@ func (r *CreateNovelRequest) Validate() error {
 	return nil
 }
 
+type UpdateNovelRequest struct {
+	Title        string  `json:"title,omitempty"`
+	Captions     *string `json:"captions,omitempty"`
+	Introduction *string `json:"introduction,omitempty"`
+	CoverImage   *string `json:"cover_image,omitempty"`
+	CategoryIDs  []int   `json:"category_ids,omitempty"`
+	Status       string  `json:"status,omitempty"`
+}
+
+func (r *UpdateNovelRequest) Validate() error {
+	// At least one updatable field must be present
+	if strings.TrimSpace(r.Title) == "" && strings.TrimSpace(r.Status) == "" && r.Captions == nil && r.Introduction == nil && r.CoverImage == nil && len(r.CategoryIDs) == 0 {
+		return errors.New("at least one field is required")
+	}
+	return nil
+}
+
 type CreateChapterRequest struct {
 	NovelID int    `json:"novel_id"`
 	Episode int    `json:"episode"`
@@ -45,6 +62,18 @@ func (r *CreateChapterRequest) Validate() error {
 	}
 	if strings.TrimSpace(r.Status) == "" {
 		r.Status = "draft"
+	}
+	return nil
+}
+
+type UpdateChapterRequest struct {
+	Title  string `json:"title,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+func (r *UpdateChapterRequest) Validate() error {
+	if strings.TrimSpace(r.Title) == "" && strings.TrimSpace(r.Status) == "" {
+		return errors.New("title or status is required")
 	}
 	return nil
 }

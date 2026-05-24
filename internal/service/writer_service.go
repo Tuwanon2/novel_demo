@@ -30,9 +30,22 @@ func (s *writerService) GetWriterByUserID(userID int) (*models.Writer, error) {
 }
 
 // ✍️ 3. Logic ส่งคำขอสมัครเป็นนักเขียน
+var (
+	ErrAlreadyWriter = errors.New("คุณเป็นนักเขียนอยู่แล้ว ไม่สามารถสมัครซ้ำได้")
+	ErrAlreadyApply  = errors.New("คุณได้สมัครหรือเป็นนักเขียนอยู่แล้ว หากต้องการให้แอดมินตรวจสอบ กรุณาติดต่อเจ้าหน้าที่")
+)
+
 func (s *writerService) ApplyForWriter(ctx context.Context, userID uint, req dto.WriterApplyRequest) error {
 	if req.PenName == "" || req.ContactRequired == "" {
 		return errors.New("กรุณากรอกข้อมูลนามปากกาและช่องทางติดต่อหลักที่จำเป็นค่ะ")
+	}
+
+	userRole, err := s.repo.GetUserRoleByUserID(int(userID))
+	if err != nil {
+		return err
+	}
+	if userRole == "writer" {
+		return ErrAlreadyWriter
 	}
 
 	// ป้องกันการสมัครซ้ำสำหรับผู้ใช้ที่มีบันทึกในตาราง writers แล้ว
@@ -41,7 +54,7 @@ func (s *writerService) ApplyForWriter(ctx context.Context, userID uint, req dto
 		return err
 	}
 	if existingWriter != nil {
-		return errors.New("คุณได้สมัครหรือเป็นนักเขียนอยู่แล้ว หากต้องการให้แอดมินตรวจสอบ กรุณาติดต่อเจ้าหน้าที่")
+		return ErrAlreadyApply
 	}
 
 	// มัดรวมข้อมูลการติดต่อและประเภทนิยายทั้งหมดลงใน JSON เดียว

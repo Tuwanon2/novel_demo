@@ -11,6 +11,7 @@ type NovelRepository interface {
 	GetNovelByID(id int) (*models.Novel, error)
 	GetNovelsByAuthorID(authorID int) ([]models.Novel, error)
 	CreateNovel(models.Novel) (int, error)
+	UpdateNovel(models.Novel) error
 	UpdateCoverImage(id int, url string) error
 	DeleteNovel(id int) error
 }
@@ -37,6 +38,7 @@ type ChapterRepository interface {
 	GetChaptersByNovelID(novelID int) ([]models.Chapter, error)
 	GetChapterByID(id int) (*models.Chapter, error)
 	CreateChapter(models.Chapter) (int, error)
+	UpdateChapter(models.Chapter) error
 }
 
 type SocialRepository interface {
@@ -57,6 +59,7 @@ type ReadingRepository interface {
 type WriterRepository interface {
 	GetWriterByID(id int) (*models.Writer, error)
 	GetWriterByUserID(userID int) (*models.Writer, error)
+	GetUserRoleByUserID(userID int) (string, error)
 	Apply(ctx context.Context, userID uint, req dto.WriterApplyRequest, contactJSON string) error
 	GetPendingRequests(ctx context.Context) ([]dto.WriterRequestResponse, error)
 	ApproveWriter(ctx context.Context, writerID uint) error

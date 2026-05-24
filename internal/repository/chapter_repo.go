@@ -65,3 +65,14 @@ func CreateChapter(db *sql.DB, chapter models.Chapter) (int, error) {
 
 	return id, nil
 }
+
+func UpdateChapter(db *sql.DB, chapter models.Chapter) error {
+	_, err := db.Exec(`
+        UPDATE chapters
+        SET title = $1,
+            status = $2,
+            updated_at = NOW()
+        WHERE chapter_id = $3
+    `, chapter.Title, chapter.Status, chapter.ChapterID)
+	return err
+}

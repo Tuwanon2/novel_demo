@@ -12,6 +12,7 @@ type NovelService interface {
 	GetNovelDetail(id int) (interface{}, error)
 	GetNovelsByAuthorID(authorID int) ([]models.Novel, error)
 	CreateNovel(models.Novel) (int, error)
+	UpdateNovel(models.Novel) error
 	UpdateNovelCover(id int, url string) error
 	DeleteNovel(id int) error
 }
@@ -34,6 +35,7 @@ type ChapterService interface {
 	GetChaptersByNovelID(novelID int) ([]models.Chapter, error)
 	GetChapterByID(id int) (*models.Chapter, error)
 	CreateChapter(models.Chapter) (int, error)
+	UpdateChapter(models.Chapter) error
 }
 
 type SocialService interface {

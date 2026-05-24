@@ -41,6 +41,10 @@ func (s *novelService) CreateNovel(novel models.Novel) (int, error) {
 	return s.repo.CreateNovel(novel)
 }
 
+func (s *novelService) UpdateNovel(novel models.Novel) error {
+	return s.repo.UpdateNovel(novel)
+}
+
 func (s *novelService) UpdateNovelCover(id int, url string) error {
 	return s.repo.UpdateCoverImage(id, url)
 }

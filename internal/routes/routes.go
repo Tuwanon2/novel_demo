@@ -92,7 +92,7 @@ func RegisterRoutes(
 	})))
 
 	// 📖 GET /chapters/:id/scenes เปิดอ่านได้ทั่วไป (ไม่ต้องครอบด้วย RequireAuth)
-	mux.Handle("/chapters/", middleware.RequestLogger(http.HandlerFunc(chapterSubRouter(scene))))
+	mux.Handle("/chapters/", middleware.RequestLogger(http.HandlerFunc(chapterSubRouter(scene, chapter))))
 
 	// 🔒 POST /scenes ต้องมีการยืนยันตัวตนผู้ใช้ (JWT Token)
 	mux.Handle("/scenes", middleware.RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -152,6 +152,8 @@ func novelSubRouter(novel service.NovelService, scene service.SceneService, chap
 			handlers.GetStoryTreeHandler(scene)(w, r)
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/start"):
 			handlers.StartReadingHandler(scene)(w, r)
+		case r.Method == http.MethodPut && isNumericIDPath(path):
+			middleware.RequireAuth(http.HandlerFunc(handlers.UpdateNovelHandler(novel, writer))).ServeHTTP(w, r)
 		case r.Method == http.MethodDelete && isNumericIDPath(path):
 			middleware.RequireAuth(http.HandlerFunc(handlers.DeleteNovelHandler(novel, writer))).ServeHTTP(w, r)
 		case r.Method == http.MethodGet && isNumericIDPath(path):
@@ -162,18 +164,18 @@ func novelSubRouter(novel service.NovelService, scene service.SceneService, chap
 	}
 }
 
-func chapterSubRouter(scene service.SceneService) http.HandlerFunc {
+func chapterSubRouter(scene service.SceneService, chapter service.ChapterService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/chapters/"), "/")
 		switch {
 		// 📖 GET /chapters/:id/scenes - อ่านได้ทั่วไป
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/scenes"):
 			handlers.GetScenesByChapterHandler(scene)(w, r)
+		// 🔒 PUT /chapters/:id - อัปเดตสถานะ/ชื่อบท
+		case r.Method == http.MethodPut && isNumericIDPath(path):
+			middleware.RequireAuth(http.HandlerFunc(handlers.UpdateChapterHandler(chapter))).ServeHTTP(w, r)
 		// 🔒 DELETE /chapters/:id - ในอนาคตควรครอบด้วย RequireAuth
 		// case r.Method == http.MethodDelete && isNumericIDPath(path):
-		// 	middleware.RequireAuth(http.HandlerFunc(...)).ServeHTTP(w, r)
-		// 🔒 PUT /chapters/:id - ในอนาคตควรครอบด้วย RequireAuth
-		// case r.Method == http.MethodPut && isNumericIDPath(path):
 		// 	middleware.RequireAuth(http.HandlerFunc(...)).ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)

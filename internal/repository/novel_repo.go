@@ -28,6 +28,7 @@ func GetNovels(db *sql.DB) ([]models.Novel, error) {
 		LEFT JOIN writers w ON n.author_id = w.writer_id
 		LEFT JOIN novel_categories nc ON n.novel_id = nc.novel_id
 		LEFT JOIN categories c ON nc.category_id = c.category_id
+		WHERE n.status = 'published'
 		GROUP BY n.novel_id, w.writer_id
 		ORDER BY n.created_at DESC
 	`)
@@ -172,6 +173,51 @@ func CreateNovel(db *sql.DB, novel models.Novel) (int, error) {
 	}
 
 	return id, nil
+}
+
+func UpdateNovel(db *sql.DB, novel models.Novel) error {
+	ctx := context.Background()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Update core novel fields, include cover_image
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE novels
+		SET title = $1,
+		    captions = $2,
+		    introduction = $3,
+		    cover_image = $4,
+		    status = $5,
+		    updated_at = NOW()
+		WHERE novel_id = $6
+	`, novel.Title, novel.Captions, novel.Introduction, novel.CoverImage, novel.Status, novel.ID); err != nil {
+		return err
+	}
+
+	// Replace category mappings: delete existing, then insert new if provided
+	if _, err = tx.ExecContext(ctx, `DELETE FROM novel_categories WHERE novel_id = $1`, novel.ID); err != nil {
+		return err
+	}
+	if len(novel.CategoryIDs) > 0 {
+		for _, catID := range novel.CategoryIDs {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO novel_categories (novel_id, category_id) VALUES ($1, $2)`, novel.ID, catID); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DeleteNovel(db *sql.DB, id int) error {

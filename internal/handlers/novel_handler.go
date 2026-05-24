@@ -116,6 +116,103 @@ func DeleteNovelHandler(novelService service.NovelService, writerService service
 	}
 }
 
+func UpdateNovelHandler(novelService service.NovelService, writerService service.WriterService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		novelID, err := extractNovelIDFromPath(r.URL.Path)
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid novel id")
+			return
+		}
+
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			WriteError(w, http.StatusUnauthorized, "unauthorized: ไม่พบข้อมูลสิทธิ์ผู้ใช้งานหรือโทเคนไม่ถูกต้อง")
+			return
+		}
+
+		writer, err := writerService.GetWriterByUserID(int(userID))
+		if err != nil || writer == nil {
+			WriteError(w, http.StatusForbidden, "forbidden: คุณยังไม่ใช่นักเขียนที่ได้รับอนุมัติ")
+			return
+		}
+
+		novelDetail, err := novelService.GetNovelDetail(novelID)
+		if err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		novelPtr, ok := novelDetail.(*models.Novel)
+		if !ok || novelPtr == nil {
+			WriteError(w, http.StatusInternalServerError, "failed to load novel details")
+			return
+		}
+
+		if novelPtr.AuthorID != writer.WriterID {
+			WriteError(w, http.StatusForbidden, "forbidden: คุณไม่มีสิทธิ์แก้ไขนิยายนี้")
+			return
+		}
+
+		var req UpdateNovelRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		if err := req.Validate(); err != nil {
+			WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		title := novelPtr.Title
+		captions := novelPtr.Captions
+		introduction := novelPtr.Introduction
+		status := novelPtr.Status
+		coverImage := novelPtr.CoverImage
+		categoryIDs := novelPtr.CategoryIDs
+
+		if strings.TrimSpace(req.Title) != "" {
+			title = req.Title
+		}
+		if req.Captions != nil {
+			captions = req.Captions
+		}
+		if req.Introduction != nil {
+			introduction = req.Introduction
+		}
+		if req.CoverImage != nil {
+			coverImage = req.CoverImage
+		}
+		if len(req.CategoryIDs) > 0 {
+			categoryIDs = req.CategoryIDs
+		}
+		if strings.TrimSpace(req.Status) != "" {
+			status = req.Status
+		}
+
+		updatedNovel := models.Novel{
+			ID:           novelID,
+			Title:        title,
+			Captions:     captions,
+			Introduction: introduction,
+			CategoryIDs:  categoryIDs,
+			CoverImage:   coverImage,
+			Status:       status,
+		}
+
+		if err := novelService.UpdateNovel(updatedNovel); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, map[string]string{"message": "novel updated"})
+	}
+}
+
 func extractNovelIDFromPath(urlPath string) (int, error) {
 	if strings.HasPrefix(urlPath, "/novels/") {
 		return extractIDFromPath(urlPath, "/novels/")

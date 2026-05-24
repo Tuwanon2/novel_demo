@@ -40,6 +40,16 @@ func (r *sqlWriterRepository) GetWriterByUserID(userID int) (*models.Writer, err
 	return &w, nil
 }
 
+func (r *sqlWriterRepository) GetUserRoleByUserID(userID int) (string, error) {
+	query := `SELECT role FROM users WHERE user_id = $1`
+	var role string
+	err := r.db.QueryRow(query, userID).Scan(&role)
+	if err != nil {
+		return "", err
+	}
+	return role, nil
+}
+
 // ✍️ 1. ส่งคำขอเข้าตาราง writers (เริ่มต้นสถานะ 'pending')
 func (r *sqlWriterRepository) Apply(ctx context.Context, userID uint, req dto.WriterApplyRequest, contactJSON string) error {
 	// 1. เปิด Transaction เพราะเราจะบันทึกมากกว่า 1 ตารางพร้อมกัน

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"novel-be/internal/dto"
@@ -62,7 +63,13 @@ func (h *WriterHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.ApplyForWriter(r.Context(), uint(userID), req); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, service.ErrAlreadyWriter) {
+			statusCode = http.StatusForbidden
+		} else if errors.Is(err, service.ErrAlreadyApply) {
+			statusCode = http.StatusBadRequest
+		}
+		http.Error(w, err.Error(), statusCode)
 		return
 	}
 
