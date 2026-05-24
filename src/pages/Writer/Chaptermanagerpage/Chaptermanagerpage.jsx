@@ -48,11 +48,11 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus }) => {
   const coverImage = formatNovelCoverImage(novel.cover_image || novel.coverImage || novel.coverUrl || novel.cover_url);
   const coverBg = novel.cover_bg || "var(--pink-100)";
   const coverEmoji = novel.cover_emoji || "📖";
-  
+
   // 🎯 ดึงสถานะและวันที่อัปเดตจาก DTO จริง
   const status = novel?.status || novel?.Status || "draft";
-  const updatedAt = novel.updated_at || novel.created_at; 
-  
+  const updatedAt = novel.updated_at || novel.created_at;
+
   const chapterCount = chapters?.length ?? 0;
   const categoryNames = getNovelCategoryNames(novel);
   const isPublishedNovel = status === "published" || status === "active";
@@ -69,7 +69,7 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus }) => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString.split("T")[0] || dateString;
-      
+
       return date.toLocaleDateString('th-TH', {
         year: 'numeric',
         month: 'long',
@@ -122,10 +122,10 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus }) => {
       </div>
       <div className="cm-banner__right">
         {/* 🎯 ตัวคอนโทรลสีและข้อความตามสถานะจริงจากฐานข้อมูลหลังบ้าน */}
-        <span 
-          className="cm-banner__status" 
-          style={{ 
-            backgroundColor: status === "published" || status === "active" ? "#e6fffa" : "#fff5f5", 
+        <span
+          className="cm-banner__status"
+          style={{
+            backgroundColor: status === "published" || status === "active" ? "#e6fffa" : "#fff5f5",
             color: status === "published" || status === "active" ? "#319795" : "#e53e3e",
             border: status === "published" || status === "active" ? "1px solid #b2f5ea" : "1px solid #fed7d7"
           }}
@@ -352,6 +352,7 @@ const SceneCard = ({
   const cleanTextPreview = stripHtmlTags(sceneContent);
 
   const [newChoices, setNewChoices] = useState([]);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     setNewChoices([]);
@@ -440,69 +441,129 @@ const SceneCard = ({
 
   return (
     <div className="cm-scene">
+
+      {/* HEADER */}
       <div className="cm-scene__header">
-        <div className="cm-scene__num">{chapterNumber}.{sceneIndex}</div>
+
+        <div className="cm-scene__num">
+          {chapterNumber}.{sceneIndex}
+        </div>
+
         <div className="cm-scene__info">
           <div className="cm-scene__title-row">
             <h4 className="cm-scene__title">{sceneTitle}</h4>
           </div>
+
           <p className="cm-scene__excerpt">
-            {cleanTextPreview ? cleanTextPreview.substring(0, 140) + "..." : "ยังว่างเปล่า ไม่มีเนื้อเรื่องในฉากนี้"}
+            {cleanTextPreview
+              ? cleanTextPreview.substring(0, 140) + "..."
+              : "ยังว่างเปล่า ไม่มีเนื้อเรื่องในฉากนี้"}
           </p>
+
           <div className="cm-scene__meta">
             <span className="cm-scene__updated">บันทึกสำเร็จ</span>
           </div>
         </div>
+
+        {/* ACTIONS */}
         <div className="cm-scene__actions">
-          <button className="cm-btn cm-btn--ghost cm-btn--sm" onClick={() => onWrite(chapterId, sceneId)}>
+
+          {/* dropdown */}
+          <button
+            className="cm-scene__collapse"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: isOpen ? "rotate(180deg)" : "none",
+                transition: "transform .2s ease"
+              }}
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <button
+            className="cm-btn cm-btn--ghost cm-btn--sm"
+            onClick={() => onWrite(chapterId, sceneId)}
+          >
             🖊 เขียนเนื้อหา
           </button>
-          <button className="cm-btn cm-btn--ghost cm-btn--sm cm-btn--danger" onClick={handleDeleteScene}>
+
+          <button
+            className="cm-btn cm-btn--ghost cm-btn--sm cm-btn--danger"
+            onClick={handleDeleteScene}
+          >
             🗑 ลบ
           </button>
         </div>
       </div>
 
-      <div className="cm-scene__choices">
-        <div className="cm-scene__choices-header">
-          <div className="cm-scene__choices-title">ตัวเลือก (Choices) - ผู้อ่านจะเลือกเส้นทางจากตัวเลือกด้านล่าง </div>
-        </div>
+      {/* BODY */}
+      {isOpen && (
+        <>
+          <div className="cm-scene__choices">
 
-        {allSceneChoices.map((choice, i) => (
-          <ChoiceRow
-            key={`choice-row-${choice.id ?? choice.ID ?? choice.choice_id ?? choice.ChoiceID ?? i}`}
-            choice={choice}
-            sceneOptions={allChapters}
-            currentChapterId={chapterId}
-            onUpdate={handleApplyChoice}
-            onCreate={async (choiceData) => {
-              try {
-                const res = await fetch(`${API_BASE}/choices`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                  },
-                  body: JSON.stringify(choiceData)
-                });
-                if (res.ok) {
-                  setNewChoices((prev) => prev.filter((c) => c.id !== choice.id));
-                  fetchScenes();
-                }
-              } catch (err) {
-                console.error("สร้างตัวเลือกพล็อตล้มเหลว:", err);
-              }
-            }}
-            onDelete={handleDeleteChoice}
-          />
-        ))}
+            <div className="cm-scene__choices-header">
+              <div className="cm-scene__choices-title">
+                ตัวเลือก (Choices) - ผู้อ่านจะเลือกเส้นทางจากตัวเลือกด้านล่าง
+              </div>
+            </div>
 
-        <button className="cm-btn cm-btn--add-choice" onClick={handleAddChoice}>
-          ➕ เพิ่มตัวเลือกใหม่
-        </button>
-      </div>
+            {allSceneChoices.map((choice, i) => (
+              <ChoiceRow
+                key={`choice-row-${choice.id ?? choice.ID ?? choice.choice_id ?? choice.ChoiceID ?? i}`}
+                choice={choice}
+                sceneOptions={allChapters}
+                currentChapterId={chapterId}
+                onUpdate={handleApplyChoice}
+                onCreate={async (choiceData) => {
+                  try {
+                    const res = await fetch(`${API_BASE}/choices`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                      },
+                      body: JSON.stringify(choiceData)
+                    });
+
+                    if (res.ok) {
+                      setNewChoices((prev) =>
+                        prev.filter((c) => c.id !== choice.id)
+                      );
+
+                      fetchScenes();
+                    }
+                  } catch (err) {
+                    console.error("สร้างตัวเลือกพล็อตล้มเหลว:", err);
+                  }
+                }}
+                onDelete={handleDeleteChoice}
+              />
+            ))}
+
+            <button
+              className="cm-btn cm-btn--add-choice"
+              onClick={handleAddChoice}
+            >
+              ➕ เพิ่มตัวเลือกใหม่
+            </button>
+
+          </div>
+        </>
+      )}
     </div>
   );
+
 };
 
 // ════════════════════════════════════════════════════════
@@ -714,7 +775,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     }
     setLoading(true);
 
-    // ✦ ท่อที่ 1: ดึงรายละเอียดวัตถุนิยายเดี่ยว (ตามโครงสร้าง NovelDetailDTO)
+    // ✦ ท่อที่ 1: ดึงรายละเอียดนิยาย (ตามโครงสร้าง NovelDetailDTO)
     try {
       const resNovel = await fetch(`${API_BASE}/novels/${currentNovelId}`, {
         method: "GET",

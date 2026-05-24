@@ -777,3 +777,32 @@
   font-size: 30px;
   color: #f08cb8;
 }
+
+/* ─────────────────────────────
+   Scene Collapse Button
+───────────────────────────── */
+
+.cm-scene__collapse {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #f3d7e3;
+  background: white;
+  color: #97266d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+
+.cm-scene__collapse:hover {
+  background: #fff0f7;
+  border-color: #ec4899;
+}
+
+.cm-scene__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
