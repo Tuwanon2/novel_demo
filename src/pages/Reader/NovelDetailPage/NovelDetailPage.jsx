@@ -50,9 +50,20 @@ const NovelDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [comments, setComments] = useState([]);
-  
-  // 📝 เพิ่ม State เฉพาะฝั่งกล่องพิมพ์ข้อความ (ไม่ต้องใช้ Authen)
   const [commentText, setCommentText] = useState("");
+  const [showNoContentDialog, setShowNoContentDialog] = useState(false); // 🔥 State สำหรับเปิด/ปิดกล่องแจ้งเตือนเมื่อไม่มีเนื้อหา
+
+  const getCurrentUserId = () => {
+    const userJson = localStorage.getItem("user");
+    if (!userJson) return 0;
+    try {
+      const user = JSON.parse(userJson);
+      return user?.id || user?.user_id || 0;
+    } catch (err) {
+      console.warn("Failed to parse user from localStorage:", err);
+      return 0;
+    }
+  };
 
   useEffect(() => {
     const fetchNovel = async () => {
@@ -66,9 +77,17 @@ const NovelDetailPage = () => {
       setError(null);
 
       try {
-        // ดึงข้อมูลรายละเอียดนิยายพ่วง user_id ล็อกหัวไว้ที่ 1 ก่อนทำ Authen
-        const response = await fetch(`${API_BASE_URL}/novels/${id}?user_id=1`);
+        const token = localStorage.getItem("token");
+        const userId = getCurrentUserId();
+        const headers = { "Content-Type": "application/json" };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const query = userId > 0 ? `?user_id=${userId}` : "";
+        const response = await fetch(`${API_BASE_URL}/novels/${id}${query}`, { headers });
         const payload = await response.json().catch(() => null);
+        
         if (!response.ok) {
           throw new Error(
             payload?.error || payload?.message || `${response.status} ${response.statusText}`
@@ -78,7 +97,7 @@ const NovelDetailPage = () => {
         const data = payload?.data || payload || {};
         const nData = data.novel || {}; 
 
-        // ดึงจำนวนตอนทั้งหมดจาก API chapters เผื่อไว้เช็คสถิติฝั่งแกรนด์ทับ
+        // ดึงจำนวนตอนทั้งหมดจาก API chapters
         let chaptersCountFromApi = 0;
         try {
           const chaptersResponse = await fetch(`${API_BASE_URL}/novels/${id}/chapters`);
@@ -102,14 +121,16 @@ const NovelDetailPage = () => {
           console.warn("Failed to fetch comments:", err);
         }
 
-        // 🔍 ดักจับชื่อตัวแปรจากหลังบ้าน รองรับทั้ง snake_case และ camelCase
-        const totalScenes = data.total_scenes ?? data.totalScenes ?? chaptersCountFromApi ?? 0;
-        const visitedScenes = data.visited_scenes ?? data.visitedScenes ?? 0;
-        const totalChoices = data.total_choices ?? data.totalChoices ?? 0;
-        const discoveredChoices = data.discovered_choices ?? data.discoveredChoices ?? 0;
-        const totalEndings = data.total_endings ?? data.totalEndings ?? 0;
+        // ดักจับข้อมูลความคืบหน้าจากหลังบ้าน
+        const progressSource = data.progress || data.user_progress || data.userProgress || data || {};
+        
+        const totalScenes = progressSource.total_scenes ?? progressSource.totalScenes ?? chaptersCountFromApi ?? 0;
+        const visitedScenes = progressSource.visited_scenes ?? progressSource.visitedScenes ?? 0;
+        const totalChoices = progressSource.total_choices ?? progressSource.totalChoices ?? 0;
+        const discoveredChoices = progressSource.discovered_choices ?? progressSource.discoveredChoices ?? 0;
+        const totalEndings = progressSource.total_endings ?? progressSource.totalEndings ?? 0;
 
-        // คำนวณเปอร์เซ็นต์จากข้อมูลหลังบ้านแท้ๆ
+        // คำนวณเปอร์เซ็นต์อ่านแบบ Real-time
         const calculatedPercentage = totalScenes > 0 
           ? Math.round((visitedScenes / totalScenes) * 100) 
           : 0;
@@ -127,7 +148,6 @@ const NovelDetailPage = () => {
           },
           synopsis: nData.captions || nData.introduction || "ไม่มีเรื่องย่อ",
           
-          // 📊 ข้อมูลจริงจากสเตตัสหลังบ้าน
           stats: {
             views: nData.views || 0, 
             paths: totalScenes, 
@@ -135,7 +155,6 @@ const NovelDetailPage = () => {
             endings: totalEndings,
           },
 
-          // 📈 ส่วนการ์ดความคืบหน้าผู้ใช้งาน
           userProgress: {
             percentage: calculatedPercentage, 
             currentChapter: visitedScenes,       
@@ -158,8 +177,16 @@ const NovelDetailPage = () => {
     fetchNovel();
   }, [id]);
 
-  // 📖 ปุ่มเริ่มอ่าน ดิ่งเข้าหน้าอ่านหลักประจำรหัสนิยาย
+  // 🔥 ฟังก์ชัน handleRead ปรับปรุงใหม่เพื่อเช็คความว่างของเนื้อหา
   const handleRead = () => {
+    const hasNoContent = novel.userProgress?.totalChapters === 0;
+
+    if (hasNoContent) {
+      // ถ้านิยายไม่มีบท/ฉากเลย ให้เปิดหน้าต่าง Modal แจ้งเตือน ห้ามหลุดไปหน้าอื่น
+      setShowNoContentDialog(true);
+      return;
+    }
+
     if (novel.id) {
       navigate(`/reading/${novel.id}`);
     }
@@ -179,12 +206,11 @@ const NovelDetailPage = () => {
     }
   };
 
-  // 💬 ฟังก์ชันจำลองเมื่อกดปุ่มส่งความคิดเห็น (ผูก Log ไว้รอน้าทำ Authen / API ส่งจริง)
   const handleSendCommentMock = () => {
     if (!commentText.trim()) return;
     console.log("ส่งความคิดเห็นข้อความสำเร็จ:", commentText);
     alert(`ระบบบันทึกคอมเมนต์จำลอง: "${commentText}" (รอเชื่อมต่อหลังบ้านสมบูรณ์)`);
-    setCommentText(""); // ล้างกล่องข้อความ
+    setCommentText(""); 
   };
 
   if (loading) {
@@ -299,11 +325,11 @@ const NovelDetailPage = () => {
               className="novel-detail__comment-input"
               rows={4}
               value={commentText}
-              onChange={(e) => setCommentText(e.target.value)} // 👈 เพิ่มลอจิกผูกข้อความเข้า State
+              onChange={(e) => setCommentText(e.target.value)}
             />
             <button 
               className="novel-detail__comment-button" 
-              onClick={handleSendCommentMock} // 👈 ลิงก์ปุ่มเข้าฟังก์ชันจัดการเบื้องต้น
+              onClick={handleSendCommentMock} 
             >
               ส่งความคิดเห็น
             </button>
@@ -339,7 +365,44 @@ const NovelDetailPage = () => {
             )}
           </div>
         </section>
-      </div>
+
+        {/* 🌟 กล่องแจ้งเตือนกรณีไม่มีเนื้อหา (No Content Modal Pop-up) */}
+        {showNoContentDialog && (
+          <div style={{
+            position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+            background: "rgba(0, 0, 0, 0.45)", display: "flex", alignItems: "center",
+            justifyContent: "center", zIndex: 9999, backdropFilter: "blur(5px)",
+            transition: "all 0.3s ease"
+          }}>
+            <div style={{
+              background: "#ffffff", padding: "36px 32px", borderRadius: "20px",
+              maxWidth: "400px", width: "90%", textAlign: "center",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+            }}>
+              <div style={{ fontSize: "54px", marginBottom: "16px", animation: "bounce 2s infinite" }}>✍️✨</div>
+              <h3 style={{ fontSize: "19px", fontWeight: "700", color: "#1a202c", marginBottom: "12px", fontFamily: "inherit" }}>
+                นักเขียนกำลังรังสรรค์เนื้อหา
+              </h3>
+              <p style={{ fontSize: "14px", color: "#4a5568", lineHeight: "1.6", marginBottom: "26px" }}>
+                นิยายเรื่องนี้ยังไม่มีเนื้อหาให้อ่าน <br />
+                รอนักเขียนปล่อยตอนใหม่เร็วๆ นี้นะ
+              </p>
+              <button
+                onClick={() => setShowNoContentDialog(false)}
+                style={{
+                  width: "100%", padding: "13px", borderRadius: "12px",
+                  background: "#E91E8C", color: "#ffffff",
+                  border: "none", fontWeight: "600", cursor: "pointer",
+                  fontSize: "15px", boxShadow: "0 4px 6px -1px rgba(233, 30, 99, 0.3)"
+                }}
+              >
+                รับทราบ ยินดีรอคอย
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div> 
     </div>
   );
 };

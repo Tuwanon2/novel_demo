@@ -35,7 +35,6 @@ const quillFormats = [
   "color",
   "background",
   "list",
-  "bullet",
   "align",
   "link",
   "image",
@@ -91,7 +90,12 @@ const ChoiceCard = ({
 
   const [text, setText] = useState(choice.text ?? choice.label ?? choice.Label ?? "");
   const [targetType, setTargetType] = useState(choice.targetType || initialScope);
-  const [targetLabel, setTargetLabel] = useState(choice.targetLabel || resolvedScene?.label || resolvedScene?.chapterTitle || "");
+  const [targetLabel, setTargetLabel] = useState(
+    choice.targetLabel ||
+    resolvedScene?.label ||
+    resolvedScene?.sceneLabel ||
+    (resolvedScene ? `${resolvedScene.chapterTitle} › ${resolvedScene.sceneLabel}` : "เลือกฉากปลายทาง...")
+  );
   const [subScene, setSubScene] = useState(initialTargetSubScene);
   const [selectedChapterId, setSelectedChapterId] = useState(initialChapterId);
 
@@ -176,6 +180,13 @@ const ChoiceCard = ({
   };
 
   const handleSaveEdit = () => {
+    onUpdate?.({
+      ...choice,
+      text,
+      targetType,
+      targetSubScene: subScene,
+      targetLabel,
+    });
     setIsEditing(false);
   };
 
@@ -474,7 +485,7 @@ const SceneTreeSidebar = ({
 
                   <button
                     className="se-tree__add-scene"
-                    onClick={() => onAddScene(ch.id)}
+                    onClick={() => onAddScene(ch.id ?? ch.chapter_id ?? ch.ChapterID)}
                   >
                     + เพิ่มฉาก
                   </button>
@@ -516,6 +527,14 @@ const SceneEditorPage = ({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  // 🎯 State สำหรับ dialog เพิ่มตอน/ฉากใหม่
+  const [showAddChapterDialog, setShowAddChapterDialog] = useState(false);
+  const [showAddSceneDialog, setShowAddSceneDialog] = useState(false);
+  const [newChapterTitle, setNewChapterTitle] = useState("");
+  const [newSceneTitle, setNewSceneTitle] = useState("");
+  const [selectedChapterForNewScene, setSelectedChapterForNewScene] = useState(null);
+
   const token = localStorage.getItem("token");
 
   const fetchSceneData = useCallback(async () => {
@@ -575,18 +594,20 @@ const SceneEditorPage = ({
     fetchSceneData();
   }, [fetchSceneData]);
 
-  const handleSave = async (overridePublishStatus = null, returnToManager = false) => {
+ const handleSave = async (overridePublishStatus = null, returnToManager = false) => {
     setIsSaving(true);
+    setErrorMsg(null);
     try {
       const currentPublishState = overridePublishStatus !== null ? overridePublishStatus : isPublished;
 
+      // 1. บันทึกข้อมูลตัวฉากหลัก (ชื่อฉาก และ เนื้อหา) เข้าท่อ /scenes/:id ตามเดิม
       const payload = {
-        title: sceneTitle.trim() || "ฉากร่างใหม่",
+        title: sceneTitle.trim() || "ฉากไม่มีชื่อ",
         content: content,
         type: isEnding ? "ending" : "normal",
         status: currentPublishState ? "published" : "draft",
         is_ending: isEnding,
-        choices: choices,
+        choices: [] // ส่งอาร์เรย์ว่างไป เพราะ Go เส้นนี้ไม่เซฟตัวเลือกให้
       };
 
       const headers = { "Content-Type": "application/json" };
@@ -603,7 +624,57 @@ const SceneEditorPage = ({
         throw new Error(errData?.error || "ไม่สามารถบันทึกข้อมูลฉากได้");
       }
 
+      // 2. 🔥 ยิงลูปบันทึกตัวเลือก (Choices) แยกส่งเข้าท่อเดี่ยวของ Go เรียงตัว
+      for (const c of choices) {
+        let finalToSceneId = 0;
+        
+        // ดึงสายอักขระระบุตำแหน่งปลายทางมาตรวจสอบ
+        const targetStr = String(c.targetSubScene || c.to_scene_id || "");
+
+        if (targetStr.includes("||")) {
+          // ถ้าเป็นรูปแบบ "chapterId||sceneId" ให้แกะเอาตัวหลังมาใช้
+          const parts = targetStr.split("||");
+          finalToSceneId = parseInt(parts[1], 10) || 0;
+        } else {
+          // ถ้ามีแค่ตัวเลขไอดีฉากเพียว ๆ
+          finalToSceneId = parseInt(targetStr, 10) || 0;
+        }
+
+        // หากตัวเลือกนั้นยังไม่ได้เลือกฉากปลายทาง ให้ข้ามไปก่อนเพื่อไม่ให้ระบบพัง
+        if (!finalToSceneId || finalToSceneId === 0) {
+          continue;
+        }
+
+        // จัดหน้าตาข้อมูลรูปแบบที่ยิงเข้าตาราง choices หลังบ้าน Go
+        const choiceBody = {
+          text: c.text || "เลือกเส้นทางนี้",
+          label: c.text || "เลือกเส้นทางนี้",
+          from_scene_id: parseInt(sceneId, 10),
+          to_scene_id: finalToSceneId,
+        };
+
+        // ตรวจสอบว่าเป็น Choice ที่เพิ่งกดเพิ่มใหม่ในหน้าจอ หรือมีอยู่เดิมใน DB แล้ว
+        const isNewChoice = String(c.id).startsWith("choice-new-");
+        const choiceUrl = isNewChoice ? `${API_BASE_URL}/choices` : `${API_BASE_URL}/choices/${c.id}`;
+        const choiceMethod = isNewChoice ? "POST" : "PUT";
+
+        // ยิง API ปังเข้าไปที่หลังบ้าน Go ของแต่ละชอยส์
+        const choiceResponse = await fetch(choiceUrl, {
+          method: choiceMethod,
+          headers,
+          body: JSON.stringify(choiceBody),
+        });
+
+        if (!choiceResponse.ok) {
+          const errData = await choiceResponse.json().catch(() => null);
+          throw new Error(errData?.error || errData?.message || "ไม่สามารถบันทึกตัวเลือกได้");
+        }
+      }
+
+      // 3. บันทึกทุกอย่างเสร็จ ทำการอัปเดตเวลาและดึงข้อมูลใหม่มาแสดงผล
       setLastSaved(new Date());
+      await fetchSceneData(); 
+
       if (returnToManager && typeof onNavigate === "function") {
         onNavigate("chapters", { novelId });
       }
@@ -614,7 +685,7 @@ const SceneEditorPage = ({
       setIsSaving(false);
     }
   };
-
+  
   const handlePublish = () => {
     setIsPublished(true);
     handleSave(true, false);
@@ -623,12 +694,11 @@ const SceneEditorPage = ({
   const addChoice = () => {
     const newChoice = {
       id: `choice-new-${Date.now()}`,
-      _tempId: `choice-temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       text: "",
       targetType: "same",
       targetSubScene: "",
-      targetLabel: "เลือกตอน...",
     };
+    // ดันกล่องตัวเลือกลงหน้าจอ โดยยังไม่เซฟลงฐานข้อมูลจนกว่าจะกดปุ่มบันทึก
     setChoices((prev) => [...prev, newChoice]);
   };
 
@@ -641,7 +711,18 @@ const SceneEditorPage = ({
   };
 
   const handleAddScene = async (chId) => {
-    if (!novelId || !chId) return;
+    if (!chId) return;
+    setSelectedChapterForNewScene(chId);
+    setNewSceneTitle("");
+    setShowAddSceneDialog(true);
+  };
+
+  const handleConfirmAddScene = async () => {
+    if (!novelId || !selectedChapterForNewScene || !newSceneTitle.trim()) {
+      setErrorMsg("กรุณากรอกชื่อฉาก");
+      return;
+    }
+
     try {
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -651,23 +732,41 @@ const SceneEditorPage = ({
         headers,
         body: JSON.stringify({
           novel_id: parseInt(novelId, 10),
-          chapter_id: parseInt(chId, 10),
-          title: "ฉากร่างใหม่",
-          content: "ร่างฉากนี้ยังไม่พร้อม",
+          chapter_id: parseInt(selectedChapterForNewScene, 10),
+          title: newSceneTitle.trim(),
+          content: "",
           type: "draft",
         }),
       });
 
       if (response.ok) {
-        fetchSceneData();
+        const result = await response.json();
+        const newSceneId = result?.data?.scene_id || result?.scene_id;
+        if (newSceneId && typeof onNavigate === "function") {
+          onNavigate("scene-editor", { novelId, chapterId: selectedChapterForNewScene, sceneId: newSceneId });
+        }
+        setShowAddSceneDialog(false);
+        setNewSceneTitle("");
+      } else {
+        setErrorMsg("ไม่สามารถสร้างฉากใหม่ได้");
       }
     } catch (err) {
       console.error("Add scene error:", err);
+      setErrorMsg(err.message || "เกิดข้อผิดพลาด");
     }
   };
 
   const handleAddChapter = async () => {
-    if (!novelId) return;
+    setNewChapterTitle("");
+    setShowAddChapterDialog(true);
+  };
+
+  const handleConfirmAddChapter = async () => {
+    if (!novelId || !newChapterTitle.trim()) {
+      setErrorMsg("กรุณากรอกชื่อตอน");
+      return;
+    }
+
     try {
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -679,15 +778,20 @@ const SceneEditorPage = ({
         body: JSON.stringify({
           novel_id: parseInt(novelId, 10),
           episode: nextEpisode,
-          title: "ตอนใหม่ยังไม่มีชื่อ",
+          title: newChapterTitle.trim(),
         }),
       });
 
       if (response.ok) {
         fetchSceneData();
+        setShowAddChapterDialog(false);
+        setNewChapterTitle("");
+      } else {
+        setErrorMsg("ไม่สามารถสร้างตอนใหม่ได้");
       }
     } catch (err) {
       console.error("Add chapter error:", err);
+      setErrorMsg(err.message || "เกิดข้อผิดพลาด");
     }
   };
 
@@ -884,6 +988,82 @@ const SceneEditorPage = ({
           </div>
         </main>
       </div>
+
+      {/* Dialog เพิ่มตอนใหม่ */}
+      {showAddChapterDialog && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+        }}>
+          <div style={{
+            background: "white", padding: "24px", borderRadius: "12px", maxWidth: "400px", width: "90%"
+          }}>
+            <h3 style={{ marginBottom: "16px", fontSize: "16px", fontWeight: 600 }}>เพิ่มตอนใหม่</h3>
+            <input
+              type="text"
+              placeholder="ชื่อตอน..."
+              value={newChapterTitle}
+              onChange={(e) => setNewChapterTitle(e.target.value)}
+              style={{
+                width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd", marginBottom: "16px"
+              }}
+              onKeyPress={(e) => e.key === "Enter" && handleConfirmAddChapter()}
+            />
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowAddChapterDialog(false)}
+                style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "white" }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleConfirmAddChapter}
+                style={{ padding: "8px 16px", borderRadius: "6px", background: "var(--pink-500)", color: "white", border: "none" }}
+              >
+                สร้าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog เพิ่มฉากใหม่ */}
+      {showAddSceneDialog && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+        }}>
+          <div style={{
+            background: "white", padding: "24px", borderRadius: "12px", maxWidth: "400px", width: "90%"
+          }}>
+            <h3 style={{ marginBottom: "16px", fontSize: "16px", fontWeight: 600 }}>เพิ่มฉากใหม่</h3>
+            <input
+              type="text"
+              placeholder="ชื่อฉาก..."
+              value={newSceneTitle}
+              onChange={(e) => setNewSceneTitle(e.target.value)}
+              style={{
+                width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd", marginBottom: "16px"
+              }}
+              onKeyPress={(e) => e.key === "Enter" && handleConfirmAddScene()}
+            />
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowAddSceneDialog(false)}
+                style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "white" }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleConfirmAddScene}
+                style={{ padding: "8px 16px", borderRadius: "6px", background: "var(--pink-500)", color: "white", border: "none" }}
+              >
+                สร้าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

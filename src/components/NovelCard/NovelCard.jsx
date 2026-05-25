@@ -83,3 +83,4 @@ const NovelCard = ({ novel, onClick }) => {
 };
 
 export default NovelCard;
+  

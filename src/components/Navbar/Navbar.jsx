@@ -137,13 +137,16 @@ const Navbar = () => {
                             <li className={`nav-item ${location.pathname === "/" ? "active" : ""}`}>
                                 <Link to="/">หน้าแรก</Link>
                             </li>
+                            <li className={`nav-item ${location.pathname === "/categories" ? "active" : ""}`}>
+                                <Link to="/categories">หมวดหมู่</Link>
+                            </li>
                             <li className={`nav-item ${location.pathname === "/bookshelf" ? "active" : ""}`}>
                                 <Link to="/bookshelf">ชั้นหนังสือ</Link>
                             </li>
                             <li className={`nav-item ${location.pathname === "/history" ? "active" : ""}`}>
                                 <Link to="/history">ประวัติการอ่าน</Link>
                             </li>
-                            <li className={`nav-item ${location.pathname === "/history" ? "active" : ""}`}>
+                            <li className={`nav-item ${location.pathname === "/registerwriter" ? "active" : ""}`}>
                                 <Link to="/registerwriter">สมัครนักเขียน</Link>
                             </li>
                         </>

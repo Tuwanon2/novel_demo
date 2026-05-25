@@ -48,11 +48,11 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus }) => {
   const coverImage = formatNovelCoverImage(novel.cover_image || novel.coverImage || novel.coverUrl || novel.cover_url);
   const coverBg = novel.cover_bg || "var(--pink-100)";
   const coverEmoji = novel.cover_emoji || "📖";
-  
+
   // 🎯 ดึงสถานะและวันที่อัปเดตจาก DTO จริง
   const status = novel?.status || novel?.Status || "draft";
-  const updatedAt = novel.updated_at || novel.created_at; 
-  
+  const updatedAt = novel.updated_at || novel.created_at;
+
   const chapterCount = chapters?.length ?? 0;
   const categoryNames = getNovelCategoryNames(novel);
   const isPublishedNovel = status === "published" || status === "active";
@@ -69,7 +69,7 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus }) => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString.split("T")[0] || dateString;
-      
+
       return date.toLocaleDateString('th-TH', {
         year: 'numeric',
         month: 'long',
@@ -122,10 +122,10 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus }) => {
       </div>
       <div className="cm-banner__right">
         {/* 🎯 ตัวคอนโทรลสีและข้อความตามสถานะจริงจากฐานข้อมูลหลังบ้าน */}
-        <span 
-          className="cm-banner__status" 
-          style={{ 
-            backgroundColor: status === "published" || status === "active" ? "#e6fffa" : "#fff5f5", 
+        <span
+          className="cm-banner__status"
+          style={{
+            backgroundColor: status === "published" || status === "active" ? "#e6fffa" : "#fff5f5",
             color: status === "published" || status === "active" ? "#319795" : "#e53e3e",
             border: status === "published" || status === "active" ? "1px solid #b2f5ea" : "1px solid #fed7d7"
           }}
@@ -160,6 +160,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
   const [subScene, setSubScene] = useState(choiceTargetSceneId);
   const [selectedChapterId, setSelectedChapterId] = useState(null);
   const [isOpen, setIsOpen] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const allScenes = (sceneOptions || []).flatMap((ch, index) => {
     const chTitle =
@@ -197,19 +198,30 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
   const effectiveSubScene = subScene || choiceTargetSceneId || currentChapterScenes[0]?.value || "";
   const selectedTargetScene = allScenes.find((scene) => String(scene.value) === String(effectiveSubScene));
 
-  const handleSaveChoice = () => {
+  const handleSaveChoice = async () => {
     const payload = {
       from_scene_id: parseInt(choice.from_scene_id ?? choice.fromSceneID ?? currentChapterId, 10),
       to_scene_id: parseInt(effectiveSubScene, 10) || 0,
       label: text,
     };
 
-    if (isNew) {
-      onCreate?.(payload);
-    } else {
-      onUpdate(choiceId, payload);
+    setIsSaving(true);
+    try {
+      let saved = false;
+      if (isNew) {
+        saved = await onCreate?.(payload);
+      } else {
+        saved = await onUpdate(choiceId, payload);
+      }
+
+      if (saved) {
+        setIsOpen(false);
+      }
+    } catch (err) {
+      console.error("บันทึกชอยส์ล้มเหลว:", err);
+    } finally {
+      setIsSaving(false);
     }
-    setIsOpen(false);
   };
 
   return (
@@ -315,8 +327,13 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
               </select>
             </div>
           </div>
-          <button className="cm-btn cm-btn--sm cm-btn--outline" style={{ marginTop: "8px" }} onClick={handleSaveChoice}>
-            💾 บันทึก
+          <button
+            className="cm-btn cm-btn--sm cm-btn--outline"
+            style={{ marginTop: "8px" }}
+            onClick={handleSaveChoice}
+            disabled={isSaving}
+          >
+            {isSaving ? "⏳ กำลังบันทึก..." : "💾 บันทึก"}
           </button>
         </div>
       )}
@@ -353,6 +370,8 @@ const SceneCard = ({
   const cleanTextPreview = stripHtmlTags(sceneContent);
 
   const [newChoices, setNewChoices] = useState([]);
+  const [isOpen, setIsOpen] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setNewChoices([]);
@@ -360,9 +379,11 @@ const SceneCard = ({
 
   const allSceneChoices = [...sceneChoices, ...newChoices];
 
-  const handleAddChoice = async () => {
+  // ➕ ปุ่มสร้างกล่องชอยส์เปล่าๆ บนหน้าจอ (ทำงานเฉพาะใน React ยังไม่ลงดาต้าเบส)
+  const handleAddChoice = () => {
     if (!sceneId) return;
 
+    // 1. ค้นหาฉากปลายทางที่มีทั้งหมด (โค้ดเดิมของน้า)
     const availableTargets = (allChapters || []).flatMap((ch) => {
       const chScenes = ch.scenes ?? ch.Scenes ?? [];
       return chScenes.map((s) => ({
@@ -377,35 +398,23 @@ const SceneCard = ({
       return;
     }
 
-    const previousScrollTop = typeof window !== "undefined" ? window.scrollY : 0;
-    const previousScrollLeft = typeof window !== "undefined" ? window.scrollX : 0;
-
-    try {
-      const res = await fetch(`${API_BASE}/choices`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          from_scene_id: parseInt(sceneId, 10),
-          to_scene_id: parseInt(targetScene.id, 10),
-          label: "ทางเลือกใหม่"
-        })
-      });
-      if (res.ok) {
-        await fetchScenes();
-        if (typeof window !== "undefined") {
-          window.scrollTo({ top: previousScrollTop, left: previousScrollLeft, behavior: "auto" });
-        }
+    // 2. ✨ ซ่อมแซม: สร้างออบเจกต์ชอยส์จำลองขึ้นมา แล้วผลักเข้าไปใน state `newChoices` ของน้าแทน
+    const uniqueTempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    setNewChoices((prevNewChoices) => [
+      ...prevNewChoices,
+      {
+        id: uniqueTempId,
+        temp: true, // กำหนดมาร์กเกอร์ว่าเป็นของสร้างใหม่บนจอ
+        from_scene_id: sceneId,
+        label: "", // รอให้นักเขียนกดพิมพ์รายละเอียดบลาๆ เอง
+        to_scene_id: targetScene.id // ล็อกเป้าฉากปลายทางเริ่มต้นให้ตามสูตรเดิมของน้า
       }
-    } catch (err) {
-      console.error("สร้างตัวเลือกพล็อตล้มเหลว:", err);
-    }
+    ]);
   };
 
   const handleApplyChoice = async (choiceId, updatedData) => {
-    if (!choiceId) return;
+    if (!choiceId) return false;
     try {
       const res = await fetch(`${API_BASE}/choices/${choiceId}`, {
         method: "PUT",
@@ -415,9 +424,16 @@ const SceneCard = ({
         },
         body: JSON.stringify(updatedData)
       });
-      if (res.ok) fetchScenes();
+      if (res.ok) {
+        await fetchScenes();
+        return true;
+      }
+      const errText = await res.text();
+      console.error("อัปเดตทางเลือกล้มเหลว:", res.status, errText);
+      return false;
     } catch (err) {
       console.error(err);
+      return false;
     }
   };
 
@@ -448,70 +464,139 @@ const SceneCard = ({
   };
 
   return (
-    <div className="cm-scene" ref={sceneRef}>
+    <div className="cm-scene">
+
+      {/* HEADER */}
       <div className="cm-scene__header">
-        <div className="cm-scene__num">{chapterNumber}.{sceneIndex}</div>
+
+        <div className="cm-scene__num">
+          {chapterNumber}.{sceneIndex}
+        </div>
+
         <div className="cm-scene__info">
           <div className="cm-scene__title-row">
             <h4 className="cm-scene__title">{sceneTitle}</h4>
           </div>
+
           <p className="cm-scene__excerpt">
-            {cleanTextPreview ? cleanTextPreview.substring(0, 140) + "..." : "ยังว่างเปล่า ไม่มีเนื้อเรื่องในฉากนี้"}
+            {cleanTextPreview
+              ? cleanTextPreview.substring(0, 140) + "..."
+              : "ยังว่างเปล่า ไม่มีเนื้อเรื่องในฉากนี้"}
           </p>
+
           <div className="cm-scene__meta">
             <span className="cm-scene__updated">บันทึกสำเร็จ</span>
           </div>
         </div>
+
+        {/* ACTIONS */}
         <div className="cm-scene__actions">
-          <button className="cm-btn cm-btn--ghost cm-btn--sm" onClick={() => onWrite(chapterId, sceneId)}>
+
+          {/* dropdown */}
+          <button
+            className="cm-scene__collapse"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: isOpen ? "rotate(180deg)" : "none",
+                transition: "transform .2s ease"
+              }}
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <button
+            className="cm-btn cm-btn--ghost cm-btn--sm"
+            onClick={() => onWrite(chapterId, sceneId)}
+          >
             🖊 เขียนเนื้อหา
           </button>
-          <button className="cm-btn cm-btn--ghost cm-btn--sm cm-btn--danger" onClick={handleDeleteScene}>
+
+          <button
+            className="cm-btn cm-btn--ghost cm-btn--sm cm-btn--danger"
+            onClick={handleDeleteScene}
+          >
             🗑 ลบ
           </button>
         </div>
       </div>
 
-      <div className="cm-scene__choices">
-        <div className="cm-scene__choices-header">
-          <div className="cm-scene__choices-title">ตัวเลือก (Choices) - ผู้อ่านจะเลือกเส้นทางจากตัวเลือกด้านล่าง </div>
-        </div>
+      {/* BODY */}
+      {isOpen && (
+        <>
+          <div className="cm-scene__choices">
 
-        {allSceneChoices.map((choice, i) => (
-          <ChoiceRow
-            key={`choice-row-${choice.id ?? choice.ID ?? choice.choice_id ?? choice.ChoiceID ?? i}`}
-            choice={choice}
-            sceneOptions={allChapters}
-            currentChapterId={chapterId}
-            onUpdate={handleApplyChoice}
-            onCreate={async (choiceData) => {
-              try {
-                const res = await fetch(`${API_BASE}/choices`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                  },
-                  body: JSON.stringify(choiceData)
-                });
-                if (res.ok) {
-                  setNewChoices((prev) => prev.filter((c) => c.id !== choice.id));
-                  fetchScenes();
-                }
-              } catch (err) {
-                console.error("สร้างตัวเลือกพล็อตล้มเหลว:", err);
-              }
-            }}
-            onDelete={handleDeleteChoice}
-          />
-        ))}
+            <div className="cm-scene__choices-header">
+              <div className="cm-scene__choices-title">
+                ตัวเลือก (Choices) - ผู้อ่านจะเลือกเส้นทางจากตัวเลือกด้านล่าง
+              </div>
+            </div>
 
-        <button className="cm-btn cm-btn--add-choice" type="button" onClick={handleAddChoice}>
-          ➕ เพิ่มตัวเลือกใหม่
-        </button>
-      </div>
+            {allSceneChoices.map((choice, i) => (
+              <ChoiceRow
+                key={`choice-row-${choice.id ?? choice.ID ?? choice.choice_id ?? choice.ChoiceID ?? i}`}
+                choice={choice}
+                sceneOptions={allChapters}
+                currentChapterId={chapterId}
+                onUpdate={handleApplyChoice}
+                onCreate={async (choiceData) => {
+                  try {
+                    const res = await fetch(`${API_BASE}/choices`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                      },
+                      body: JSON.stringify(choiceData)
+                    });
+
+                    if (res.ok) {
+                      // 🎉 แจ้งเตือนนักเขียนให้ชื่นใจว่าลงดาต้าเบสแล้วนะ
+                      alert("🎉 บันทึกทางเลือกพล็อตใหม่ลงฐานข้อมูลสำเร็จเรียบร้อยแล้ว!");
+                      
+                      // เคลียร์กล่อง Temp ล่าสุดออกไป เพราะดาต้าเบสจริงจะอัปเดตรีเฟรชกลับมาแสดงแทน
+                      setNewChoices((prev) => prev.filter((c) => c.id !== choice.id));
+                      await fetchScenes(); // ดึงข้อมูลโครงสร้างฉากใหม่จากหลังบ้านมาโชว์ตัวจริง
+                      return true;
+                    } else {
+                      const errText = await res.text();
+                      alert("❌ บันทึกล้มเหลว: " + errText);
+                      return false;
+                    }
+                  } catch (err) {
+                    console.error("สร้างตัวเลือกพล็อตล้มเหลว:", err);
+                    alert("❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+                    return false;
+                  }
+                }}
+                onDelete={handleDeleteChoice}
+              />
+            ))}
+
+          <button 
+            className="cm-btn cm-btn--sm cm-btn--primary" 
+            style={{ marginTop: "8px" }} 
+            onClick={handleAddChoice}
+          >
+            ➕ เพิ่มทางเลือกใหม่
+          </button>
+
+          </div>
+        </>
+      )}
     </div>
   );
+
 };
 
 // ════════════════════════════════════════════════════════
@@ -723,7 +808,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     }
     setLoading(true);
 
-    // ✦ ท่อที่ 1: ดึงรายละเอียดวัตถุนิยายเดี่ยว (ตามโครงสร้าง NovelDetailDTO)
+    // ✦ ท่อที่ 1: ดึงรายละเอียดนิยาย (ตามโครงสร้าง NovelDetailDTO)
     try {
       const resNovel = await fetch(`${API_BASE}/novels/${currentNovelId}`, {
         method: "GET",

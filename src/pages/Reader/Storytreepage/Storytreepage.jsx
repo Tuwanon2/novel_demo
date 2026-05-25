@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap, 
+  MiniMap,
   Handle,
   Position,
 } from "reactflow";
@@ -31,9 +31,14 @@ const STATUS_STYLE = {
 const StoryNode = ({ data }) => {
   const currentStatus = data.computedStatus || NODE_STATUS.LOCKED;
   const style = STATUS_STYLE[currentStatus] || STATUS_STYLE[NODE_STATUS.LOCKED];
-  
+
   const sceneType = data.type || "normal";
   const isLocked = currentStatus === NODE_STATUS.LOCKED || currentStatus === NODE_STATUS.ENDING_LOCKED;
+
+  const stripHtml = (text) => {
+    if (!text || typeof text !== "string") return "";
+    return text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  };
 
   const getPrefix = () => {
     if (sceneType === "start") return "▶ ";
@@ -42,39 +47,63 @@ const StoryNode = ({ data }) => {
     return "📖 ";
   };
 
-  // ดักจับชื่อคีย์จากหลังบ้านทุกรูปแบบที่เป็นไปได้ (ป้องกันชื่อไม่ขึ้น)
-  const sceneTitle = data.title || data.scene_name || data.name || data.label || data.chapter_name || `ฉากที่ ${data.id}`;
-  const sceneDescription = data.summary || data.description || data.short_content || data.content_summary || data.content || "อ่านต่อเพื่อค้นหาความลับในฉากนี้...";
+  const sceneTitle = stripHtml(data.title || data.scene_name || data.name || data.label || data.chapter_name || `ฉากที่ ${data.id}`);
+  const sceneDescription = stripHtml(data.summary || data.description || data.short_content || data.content_summary || data.content || data.Content || data.content_html || data.html_content || "อ่านต่อเพื่อค้นหาความลับในฉากนี้...");
+
+  const chapterLabel = data.chapter_title || data.ChapterTitle || data.chapterName || data.chapter_name;
+  const chapterEpisode = data.chapter_episode || data.chapterEpisode || data.episode || data.chapter_order || data.chapterOrder;
+  const sceneNumber = data.scene_number || data.sceneNumber || data.order || data.scene_order || data.id;
+
+  const footerLabel = sceneType === "start"
+    ? "จุดเริ่มต้น"
+    : sceneType === "ending"
+      ? "ฉากจบ"
+      : chapterEpisode
+        ? `ตอนที่ ${chapterEpisode}`
+        : chapterLabel
+          ? chapterLabel
+          : `ฉากที่ ${sceneNumber}`;
 
   return (
     <>
       <Handle type="target" position={Position.Left} isConnectable={false} style={{ opacity: 0, pointerEvents: 'none' }} />
-      
+
       <div
         className={`story-node ${currentStatus === NODE_STATUS.CURRENT ? "story-node--current" : ""}`}
         style={{
           borderColor: style.stroke,
           background: style.fill,
           color: style.text,
-          padding: "12px",
-          width: "240px",
-          borderRadius: "8px",
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+          padding: "14px",
+          width: "280px",
+          minHeight: "120px",
+          borderRadius: "10px",
+          boxShadow: "0 5px 10px -2px rgba(0, 0, 0, 0.08)",
           borderWidth: "2px",
-          borderStyle: "solid"
+          borderStyle: "solid",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between"
         }}
       >
-        <div className="story-node__label" style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {getPrefix()}
-          {isLocked ? "เนื้อเรื่องยังไม่เปิดเผย" : sceneTitle}
+        <div>
+          <div className="story-node__label" style={{ fontWeight: "700", fontSize: "13px", marginBottom: "8px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {getPrefix()}
+            {isLocked ? "เนื้อเรื่องยังไม่เปิดเผย" : sceneTitle}
+          </div>
+
+          <div className="story-node__desc" style={{ fontSize: "11px", color: isLocked ? "#a0aec0" : "#4a5568", lineHeight: "1.5", minHeight: "40px", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {isLocked ? "ผ่านเงื่อนไขในฉากก่อนหน้าเพื่อปลดล็อกผังเส้นทางคลังสายนี้" : sceneDescription}
+          </div>
         </div>
 
-        <div className="story-node__desc" style={{ fontSize: "11px", color: isLocked ? "#a0aec0" : "#4a5568", lineHeight: "1.4", minHeight: "32px", display: "-webkit-box", WebkitLineClamp: "3", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {isLocked ? "ผ่านเงื่อนไขในฉากก่อนหน้าเพื่อปลดล็อกผังเส้นทางคลังสายนี้" : sceneDescription}
-        </div>
-
-        <div className="story-node__chapter" style={{ marginTop: "8px", fontSize: "10px", opacity: 0.6, textAlign: "right" }}>
-          {sceneType === "start" ? "จุดเริ่มต้น" : sceneType === "ending" ? "ฉากจบ" : `ID: ${data.id}`}
+        <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+          <div className="story-node__chapter" style={{ fontSize: "11px", opacity: 0.75, wordBreak: "break-word", flex: 1 }}>
+            {footerLabel}
+          </div>
+          <div style={{ fontSize: "10px", padding: "4px 8px", borderRadius: "999px", background: "rgba(233, 30, 99, 0.12)", color: "#c2185b", whiteSpace: "nowrap" }}>
+            {sceneType === "start" ? "เริ่มต้น" : sceneType === "ending" ? "ฉากจบ" : `ฉากที่ ${sceneNumber}`}
+          </div>
         </div>
       </div>
 
@@ -88,9 +117,23 @@ const nodeTypes = {
   storyNode: StoryNode,
 };
 
-const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
+const StoryTreePage = ({ novelId: propNovelId, userId = 0, onNavigate }) => {
   const { novelId: urlNovelId } = useParams();
   const activeNovelId = propNovelId || urlNovelId;
+
+  const getCurrentUserId = () => {
+    const userJson = localStorage.getItem("user");
+    if (!userJson) return 0;
+    try {
+      const user = JSON.parse(userJson);
+      return user?.id || user?.user_id || 0;
+    } catch (err) {
+      console.error("Failed to parse user from localStorage:", err);
+      return 0;
+    }
+  };
+
+  const effectiveUserId = getCurrentUserId() || userId;
 
   const [treeData, setTreeData] = useState(null);
   const [novelDetail, setNovelDetail] = useState(null);
@@ -118,7 +161,8 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
           console.warn("ดึงข้อมูลนิยายหลักไม่สำเร็จ:", e);
         }
 
-        const response = await fetch(`${BASE_URL}/novels/${activeNovelId}/story-tree?user_id=${userId}`);
+        const query = effectiveUserId > 0 ? `?user_id=${effectiveUserId}` : "";
+        const response = await fetch(`${BASE_URL}/novels/${activeNovelId}/story-tree${query}`);
         if (!response.ok) {
           throw new Error("ไม่สามารถเรียกดูแผนผังนิยายกิ่งไม้จากฐานข้อมูลได้");
         }
@@ -190,9 +234,9 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
 
       const branchIndex = levelCurrentTracker[lv];
       levelCurrentTracker[lv]++;
-      const xPosition = lv * 300;
+      const xPosition = lv * 480;
       const totalInLevel = levelCounts[lv] || 1;
-      const yPosition = (branchIndex - (totalInLevel - 1) / 2) * 180;
+      const yPosition = (branchIndex - (totalInLevel - 1) / 2) * 320;
 
       let computedStatus = NODE_STATUS.LOCKED;
       const parents = parentMap[nodeIdStr] || [];
@@ -208,7 +252,7 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
         if (isCurrentNode) {
           computedStatus = NODE_STATUS.CURRENT;
         } else if (node.is_unlocked || isAnyParentActive) {
-          computedStatus = NODE_STATUS.VISITED; 
+          computedStatus = NODE_STATUS.VISITED;
         } else {
           computedStatus = NODE_STATUS.LOCKED;
         }
@@ -226,9 +270,9 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
       const fromId = String(edge.from_id || edge.from);
       const toId = String(edge.to_id || edge.to);
       const sourceNodeMapped = mappedNodes.find(n => n.id === fromId);
-      
+
       const isSourceActive = sourceNodeMapped?.data?.computedStatus === NODE_STATUS.CURRENT ||
-                             sourceNodeMapped?.data?.computedStatus === NODE_STATUS.VISITED;
+        sourceNodeMapped?.data?.computedStatus === NODE_STATUS.VISITED;
 
       return {
         id: String(edge.id || `e-${fromId}-${toId}-${idx}`),
@@ -239,18 +283,19 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
         labelStyle: { fill: "#4a5568", fontWeight: 500, fontSize: 11 },
         labelBgPadding: [4, 4],
         labelBgRadius: 4,
-        labelBgStyle: { fill: "#fff", fillOpacity: 0.9, stroke: "#cbd5e1", strokeWidth: 1 },
+        labelBgStyle: { fill: "#ffffff", fillOpacity: 1, stroke: "#cbd5e1", strokeWidth: 1 },
+        labelBgBorderRadius: 4,
         style: { stroke: isSourceActive ? "#4CAF82" : "#D0CCD7", strokeWidth: 2 },
         type: "smoothstep",
       };
     });
 
     const visitedScenesCount = mappedNodes.filter(n => n.data.computedStatus === NODE_STATUS.VISITED || n.data.computedStatus === NODE_STATUS.CURRENT).length;
-    
+
     const discoveredChoicesCount = mappedEdges.filter(edge => {
       const targetNode = mappedNodes.find(n => n.id === edge.target);
       return targetNode && (
-        targetNode.data.computedStatus === NODE_STATUS.VISITED || 
+        targetNode.data.computedStatus === NODE_STATUS.VISITED ||
         targetNode.data.computedStatus === NODE_STATUS.CURRENT ||
         targetNode.data.computedStatus === NODE_STATUS.ENDING_UNLOCKED
       );
@@ -258,9 +303,9 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
 
     const unlockedEndingsCount = mappedNodes.filter(n => n.data.computedStatus === NODE_STATUS.ENDING_UNLOCKED).length;
 
-    return { 
-      computedNodes: mappedNodes, 
-      computedEdges: mappedEdges, 
+    return {
+      computedNodes: mappedNodes,
+      computedEdges: mappedEdges,
       autoStats: {
         visitedScenes: visitedScenesCount,
         totalScenes: rawNodes.length,
@@ -268,15 +313,15 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
         totalChoices: rawEdges.length,
         unlockedEndings: unlockedEndingsCount,
         totalEndings: rawNodes.filter(n => n.type === "ending").length || 3
-      } 
+      }
     };
   }, [treeData]);
 
   const handleNodeClick = (_, node) => {
     const currentStatus = node.data?.computedStatus;
     const clickable = currentStatus === NODE_STATUS.CURRENT ||
-                      currentStatus === NODE_STATUS.VISITED ||
-                      currentStatus === NODE_STATUS.ENDING_UNLOCKED;
+      currentStatus === NODE_STATUS.VISITED ||
+      currentStatus === NODE_STATUS.ENDING_UNLOCKED;
 
     if (!clickable) return;
 
@@ -308,7 +353,14 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
   }
 
   const finalTitle = novelDetail?.title || treeData?.novel_title || "ผังโครงสร้างเนื้อเรื่อง";
-  const stats = autoStats;
+  const stats = autoStats || {
+    visitedScenes: 0,
+    totalScenes: 0,
+    discoveredChoices: 0,
+    totalChoices: 0,
+    unlockedEndings: 0,
+    totalEndings: 0
+  };
 
   return (
     <div className="stp">
@@ -341,8 +393,8 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
 
         <div className="stp__main">
           {/* กำหนดขนาดกว้างสูงแบบ inline และครอบเงื่อนไขให้แน่ใจว่าเรนเดอร์ React Flow ตอนมีข้อมูลชัวร์ๆ ป้องกัน Warning ตัวที่สองครับ */}
-          <div className="stp__flow-wrapper" style={{ width: "100%", height: "650px", background: "#f8f9fa", borderRadius: "8px", position: "relative" }}>
-            {computedNodes.length > 0 && (
+          <div className="stp__flow-wrapper" style={{ width: "100%", height: "650px", background: "#f8f9fa", borderRadius: "8px", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {computedNodes.length > 0 ? (
               <ReactFlow
                 nodes={computedNodes}
                 edges={computedEdges}
@@ -359,7 +411,7 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
               >
                 <Background gap={24} size={1} color="#e2e8f0" />
                 <Controls />
-                <MiniMap 
+                <MiniMap
                   nodeColor={(node) => {
                     const status = node.data?.computedStatus;
                     if (status === NODE_STATUS.CURRENT) return "#E91E8C";
@@ -371,6 +423,12 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 1, onNavigate }) => {
                   style={{ borderRadius: "6px", border: "1px solid #cbd5e1" }}
                 />
               </ReactFlow>
+            ) : (
+              <div style={{ textAlign: "center", color: "#718096", padding: "20px" }}>
+                <span style={{ fontSize: "40px" }}>🍁</span>
+                <p style={{ marginTop: "12px", fontSize: "15px", fontWeight: "500" }}>นิยายเรื่องนี้ยังไม่มีการเพิ่มตอนหรือฉากเนื้อเรื่อง</p>
+                <p style={{ fontSize: "13px", opacity: 0.8 }}>โปรดติดตามชมแผนผังเส้นทางอีกครั้งเมื่อนักเขียนเริ่มลงเนื้อหา</p>
+              </div>
             )}
           </div>
 

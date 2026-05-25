@@ -150,17 +150,55 @@ const Navbarwriter = () => {
     // ─────────────────────────────────────
     // Navigate after select
     // ─────────────────────────────────────
-    const navigateToNovelPage = (novelId, target) => {
+    const navigateToNovelPage = async (novelId, target) => {
         if (target === "chapters") {
             window.location.href = `/writer/${novelId}/chapters`;
-        }
-
-        if (target === "write") {
-            window.location.href = `/writer/${novelId}/scene/1`;
+            return;
         }
 
         if (target === "tree") {
             window.location.href = `/writer/${novelId}/storytree`;
+            return;
+        }
+
+        if (target === "write") {
+            try {
+                // ✨ แกับั๊ก: ดึงข้อมูลหา scene_id จริงๆ ของนิยายเรื่องนี้ ไม่ฮาร์ดโค้ดเป็น 1 แล้ว
+                const token = localStorage.getItem("token");
+                const headers = { Authorization: `Bearer ${token}` };
+
+                // 1. ดึงตอน (Chapters) ทั้งหมดของนิยายเรื่องนี้มาเช็ค
+                const chapterRes = await fetch(`${API_BASE_URL}/novels/${novelId}/chapters`, { headers });
+                const chapterData = await chapterRes.json();
+                const chapters = chapterData?.data?.chapters || chapterData?.chapters || chapterData?.data || [];
+
+                if (!chapters.length) {
+                    window.location.href = `/writer/${novelId}/chapters`;
+                    return;
+                }
+
+                const firstChapterId = chapters[0].id || chapters[0].chapter_id || chapters[0].ChapterID;
+
+                // 2. ดึงฉาก (Scenes) ทั้งหมดที่อยู่ในตอนแรก
+                const sceneRes = await fetch(`${API_BASE_URL}/chapters/${firstChapterId}/scenes`, { headers });
+                const sceneData = await sceneRes.json();
+                const scenes = sceneData?.data?.scenes || sceneData?.scenes || sceneData?.data || [];
+
+                if (!scenes.length) {
+                    window.location.href = `/writer/${novelId}/chapters`;
+                    return;
+                }
+
+                // 3. เอา ID ของฉากแรกสุดมาใช้
+                const firstSceneId = scenes[0].id || scenes[0].scene_id || scenes[0].SceneID;
+
+                // 🚀 พาผู้ใช้งานไปที่ฉากแรกสุดของนิยายเรื่องที่เลือกจริงๆ
+                window.location.href = `/writer/${novelId}/scene/${firstSceneId}`;
+            } catch (err) {
+                console.error("ดึงข้อมูลฉากแรกล้มเหลว:", err);
+                window.location.href = `/writer/${novelId}/chapters`; // ถ้าพังให้กลับไปหน้าจัดการตอน
+            }
+            return;
         }
 
         if (!target) {
@@ -321,16 +359,16 @@ const Navbarwriter = () => {
     // ─────────────────────────────────────
     // Navigate novel pages
     // ─────────────────────────────────────
-    const handleNovelMenu = (target) => {
+    const handleNovelMenu = async (target) => {
         if (!selectedNovel) {
             openNovelPopup(target);
             return;
         }
 
-        const novelId =
-            selectedNovel.id || selectedNovel.novel_id;
-
-        navigateToNovelPage(novelId, target);
+        const novelId = selectedNovel.id || selectedNovel.novel_id;
+        
+        // ✨ เปลี่ยนให้มีการรอ (await) เพื่อให้มันหา scene_id ให้เสร็จก่อนเปลี่ยนหน้า
+        await navigateToNovelPage(novelId, target);
     };
 
     // ─────────────────────────────────────

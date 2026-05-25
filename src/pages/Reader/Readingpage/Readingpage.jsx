@@ -7,12 +7,26 @@ import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
 const BASE_URL = "http://localhost:8080"; 
 
 const ReadingPage = ({
-  userId = 1, // ชั่วคราวก่อนทำระบบล็อกอิน
+  userId = 0,
   novelTitle = "กำลังโหลดชื่อเรื่อง...",
 }) => {
 
   const { novelId, sceneId } = useParams();
   const navigate = useNavigate();
+
+  const getCurrentUserId = () => {
+    const userJson = localStorage.getItem("user");
+    if (!userJson) return 0;
+    try {
+      const user = JSON.parse(userJson);
+      return user?.id || user?.user_id || 0;
+    } catch (err) {
+      console.error("Failed to parse user from localStorage:", err);
+      return 0;
+    }
+  };
+
+  const effectiveUserId = getCurrentUserId() || userId;
 
   const [currentView, setCurrentView] = useState("reading");
   const [currentSceneId, setCurrentSceneId] = useState(sceneId || null);
@@ -40,28 +54,42 @@ const ReadingPage = ({
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // 1. บันทึกพิกัดปัจจุบันและปลดล็อกเส้นทางในตาราง history
-      await fetch(`${BASE_URL}/progress`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          user_id: parseInt(userId),
-          novel_id: parseInt(nId),
-          scene_id: parseInt(sId)
-        })
-      });
-
-      // 2. ถ้าฉากนี้เป็นจุดจบ (Ending) ให้ยิงไปบันทึกลง user_endings ด้วย
-      if (sceneType === "ending" || sceneType === "Ending") {
-        await fetch(`${BASE_URL}/user-endings`, {
+      if (!effectiveUserId) {
+        console.warn("No logged-in user found, skipping progress save.");
+      } else {
+        // 1. บันทึกพิกัดปัจจุบันและปลดล็อกเส้นทางในตาราง history
+        const progressRes = await fetch(`${BASE_URL}/progress`, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            user_id: parseInt(userId),
+            user_id: parseInt(effectiveUserId),
             novel_id: parseInt(nId),
-            scene_id: parseInt(sId)
+            current_scene_id: parseInt(sId)
           })
         });
+
+        if (!progressRes.ok) {
+          const errText = await progressRes.text();
+          console.error("Progress save failed:", progressRes.status, errText);
+        }
+
+        // 2. ถ้าฉากนี้เป็นจุดจบ (Ending) ให้ยิงไปบันทึกลง user_endings ด้วย
+        if ((sceneType === "ending" || sceneType === "Ending") && effectiveUserId) {
+          const endingRes = await fetch(`${BASE_URL}/user-endings`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              user_id: parseInt(effectiveUserId),
+              novel_id: parseInt(nId),
+              scene_id: parseInt(sId)
+            })
+          });
+
+          if (!endingRes.ok) {
+            const errText = await endingRes.text();
+            console.error("Ending record failed:", endingRes.status, errText);
+          }
+        }
       }
     } catch (err) {
       console.error("❌ ไม่สามารถอัปเดตความคืบหน้าการอ่านได้:", err);
@@ -84,10 +112,11 @@ const ReadingPage = ({
       setError(null);
       try {
         let url = "";
+        const query = effectiveUserId > 0 ? `?user_id=${effectiveUserId}` : "";
         if (!currentSceneId) {
-          url = `${BASE_URL}/novels/${novelId}/start?user_id=${userId}`;
+          url = `${BASE_URL}/novels/${novelId}/start${query}`;
         } else {
-          url = `${BASE_URL}/scenes/${currentSceneId}?user_id=${userId}`;
+          url = `${BASE_URL}/scenes/${currentSceneId}${query}`;
         }
 
         const response = await fetch(url);
@@ -152,14 +181,18 @@ const ReadingPage = ({
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       // บันทึกทางเลือกลง user_choice_history
-      await fetch(`${BASE_URL}/choice-history`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          user_id: parseInt(userId),
-          choice_id: parseInt(choice.choice_id)
-        })
-      });
+      if (!effectiveUserId) {
+        console.warn("No logged-in user found, skipping choice history save.");
+      } else {
+        await fetch(`${BASE_URL}/choice-history`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            user_id: parseInt(effectiveUserId),
+            choice_id: parseInt(choice.choice_id)
+          })
+        });
+      }
     } catch (err) {
       console.error("บันทึกประวัติการเลือกทางเลือกผิดพลาด:", err);
     }

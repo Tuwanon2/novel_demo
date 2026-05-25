@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom"; // 1. เพิ่มการ Import ReactDOM เข้ามาตรงนี้
 import "./WriterRegisterPage.css";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
@@ -19,11 +20,13 @@ const GENRE_OPTIONS = [
 ];
 
 // ─────────────────────────────────────────────
-//  Sub Component: Cancel Confirmation Modal (แก้ไขจุดนี้แล้ว)
+//  Sub Component: Cancel Confirmation Modal
 // ─────────────────────────────────────────────
 const CancelConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
     if (!isOpen) return null;
-    return (
+    
+    // 2. ใช้ ReactDOM.createPortal ครอบ เพื่อส่งกล่องนี้ไปอยู่ชั้นนอกสุดของหน้าเว็บ
+    return ReactDOM.createPortal(
         <div className="wr-modal-overlay">
             <div className="wr-modal">
                 <h3 className="wr-modal__title">ยกเลิกการสมัคร</h3>
@@ -37,7 +40,8 @@ const CancelConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body // ส่งไปต่อท้ายแท็ก body โดยตรง ไม่ให้โดนเลย์เอาต์หน้าฟอร์มบีบ
     );
 };
 
@@ -275,17 +279,9 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
         fetchWriterApplication();
     }, []);
 
-    // ── 🛡️ Guard Section: ปิดตัวดักสิทธิ์ชั่วคราวเพื่อใช้ในการทดสอบ ──
     useEffect(() => {
         const token = localStorage.getItem("token");
         const userJson = localStorage.getItem("user");
-
-        /* if (!token) {
-            alert("กรุณาเข้าสู่ระบบก่อนทำการสมัครสมาชิกนักเขียนนะครับ");
-            navigate("/login-register");
-            return;
-        }
-        */
 
         if (userJson) {
             try {
@@ -307,7 +303,6 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
         if (errors[key]) setErrors((prev) => { const n = { ...prev }; delete n[key]; return n; });
     };
 
-    // ── Validation Logic ──────────────────────────────────
     const validateStep = (s) => {
         const e = {};
         if (s === 1) {
@@ -347,6 +342,7 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
             setErrors({});
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
+            // สเต็ปที่ 1 ถ้ากดย้อนกลับ จะเป็นการเปิด Modal ยืนยันยกเลิกการสมัครแทน
             setCancelModalOpen(true);
         }
     };
@@ -439,19 +435,12 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
         <>
             <Navbar />
             <div className="wr-page">
+                {/* [แก้ไข] นำ wr-cancel-btn (ปุ่มกากบาท) ออกจากส่วนหัวทั้งหมดตามหลัก UX */}
                 <div className="wr-header-wrapper">
                     <div className="wr-header">
                         <h1 className="wr-header__title">สมัครเป็นนักเขียน</h1>
                         <p className="wr-header__sub">กรอกข้อมูลเพื่อยืนยันตัวตนของคุณในฐานะนักเขียน</p>
                     </div>
-                    <button 
-                        type="button"
-                        className="wr-cancel-btn"
-                        onClick={() => setCancelModalOpen(true)}
-                        title="ยกเลิกการสมัครเป็นนักเขียน"
-                    >
-                        ✕ ยกเลิก
-                    </button>
                 </div>
 
                 {writerAppStatus === "pending" && (
@@ -514,8 +503,14 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
                                 {errors.email && <p className="wr-field__error" role="alert">{errors.email}</p>}
                             </div>
 
-                            <div className="wr-card__footer wr-card__footer--right">
-                                <button type="button" className="wr-btn wr-btn--primary" onClick={handleNext}>ถัดไป</button>
+                            {/* [แก้ไข] เพิ่มปุ่มยกเลิกในฐานะปุ่มย้อนกลับของหน้าแรกสุด */}
+                            <div className="wr-step-nav" style={{ marginTop: 24 }}>
+                                <button type="button" className="wr-btn wr-btn--outline" onClick={handlePrev}>
+                                    ยกเลิกการสมัคร
+                                </button>
+                                <button type="button" className="wr-btn wr-btn--primary" onClick={handleNext}>
+                                    ถัดไป
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -600,14 +595,6 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
                                 <h2 className="wr-section-title">ยืนยันข้อมูล</h2>
                                 <p className="wr-confirm-sub">ตรวจสอบข้อมูลของคุณ</p>
                             </div>
-                            <button 
-                                type="button"
-                                className="wr-cancel-btn"
-                                onClick={() => setCancelModalOpen(true)}
-                                title="ยกเลิกการสมัครเป็นนักเขียน"
-                            >
-                                ✕ ยกเลิก
-                            </button>
                         </div>
 
                         <SummaryCard data={form} />
@@ -636,12 +623,13 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
                                 disabled={isSubmitting || writerAppStatus === "pending" || writerAppStatus === "approved"}
                                 aria-busy={isSubmitting}
                             >
-                                {isSubmitting ? <span className="wr-spinner" /> : "ยืนยัน"}
+                                {isSubmitting ? <span className="wr-spinner" /> : "ยืนยันและส่งใบสมัคร"}
                             </button>
                         </div>
                     </div>
                 )}
 
+                {/* Modal ถูกย้ายเข้ามาอยู่ในจุดที่จะดึงสไตล์ Overlay กลางจอได้ง่ายขึ้น */}
                 <CancelConfirmModal
                     isOpen={cancelModalOpen}
                     onConfirm={handleCancelConfirm}
