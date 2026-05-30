@@ -76,3 +76,11 @@ func UpdateChapter(db *sql.DB, chapter models.Chapter) error {
     `, chapter.Title, chapter.Status, chapter.ChapterID)
 	return err
 }
+
+func DeleteChapter(db *sql.DB, chapterID int) error {
+	_, err := db.Exec(`
+        DELETE FROM chapters
+        WHERE chapter_id = $1
+    `, chapterID)
+	return err
+}

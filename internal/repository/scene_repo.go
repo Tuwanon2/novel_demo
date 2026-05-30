@@ -147,6 +147,13 @@ func UpdateScene(db *sql.DB, scene models.Scene) error {
 	return err
 }
 
+func DeleteScene(db *sql.DB, sceneID int) error {
+	_, err := db.Exec(`
+		DELETE FROM scenes WHERE scene_id = $1
+	`, sceneID)
+	return err
+}
+
 // CountScenesInNovel นับจำนวนฉากทั้งหมดในนิยายเรื่องนี้ (ใช้สำหรับ Automate Type 'start')
 func CountScenesInNovel(db *sql.DB, novelID int) (int, error) {
 	var count int

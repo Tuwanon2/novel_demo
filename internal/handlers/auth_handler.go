@@ -10,11 +10,12 @@ import (
 )
 
 type AuthHandler struct {
-	authService *service.AuthService
+	authService  *service.AuthService
+	mediaService service.MediaService
 }
 
-func NewAuthHandler(as *service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: as}
+func NewAuthHandler(as *service.AuthService, ms service.MediaService) *AuthHandler {
+	return &AuthHandler{authService: as, mediaService: ms}
 }
 
 // 📝 1. ท่อสมัครสมาชิก (Register) - รับ Multipart Form เผื่อการอัปโหลดรูปภาพ
@@ -44,14 +45,25 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 💡 โซนรูปโปรไฟล์: สำหรับสัปดาห์นี้ ส่งเป็นค่าว่างหรือ URL ตัวอย่างไปก่อน
-	// เมื่อต่อกับ MinIO ในสัปดาห์หน้า คุณสามารถเอาไฟล์จาก r.FormFile("avatar") ไปอัปโหลดแล้วเอา URL จริงมาใส่ตรงนี้ได้เลยครับ
-	avatarURL := "http://localhost:9000/novels-images/mike_reader.jpg"
+	avatarURL := ""
+	file, handler, err := r.FormFile("profileImage")
+	if err != nil && err != http.ErrMissingFile {
+		http.Error(w, "ไม่สามารถอ่านไฟล์รูปภาพได้", http.StatusBadRequest)
+		return
+	}
+	if err == nil {
+		defer file.Close()
 
-	// เรียกใช้งาน Service ตัวจริง เพื่อแฮชรหัสผ่านและบันทึกลง PostgreSQL
+		uploadedURL, uploadErr := h.mediaService.UploadImage(r.Context(), handler)
+		if uploadErr != nil {
+			http.Error(w, "ไม่สามารถอัปโหลดรูปภาพได้: "+uploadErr.Error(), http.StatusBadRequest)
+			return
+		}
+		avatarURL = uploadedURL
+	}
+
 	user, err := h.authService.Register(r.Context(), req, avatarURL)
 	if err != nil {
-		// หากเกิดปัญหาเช่น Username หรือ Email ซ้ำ ฐานข้อมูลจะฟ้องกลับมาทางนี้
 		http.Error(w, "สมัครสมาชิกไม่สำเร็จ: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

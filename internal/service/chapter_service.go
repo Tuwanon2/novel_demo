@@ -28,3 +28,7 @@ func (s *chapterService) CreateChapter(chapter models.Chapter) (int, error) {
 func (s *chapterService) UpdateChapter(chapter models.Chapter) error {
 	return s.repo.UpdateChapter(chapter)
 }
+
+func (s *chapterService) DeleteChapter(chapterID int) error {
+	return s.repo.DeleteChapter(chapterID)
+}

@@ -14,13 +14,12 @@ import (
 )
 
 type WriterHandler struct {
-	// 🟢 แก้ไขตรงนี้: ถอดเครื่องหมาย * (Pointer) ออก เพื่อให้เรียกใช้ผ่าน Interface โดยตรงตามมาตรฐานโปรเจกต์
-	service service.WriterService
+	service      service.WriterService
+	mediaService service.MediaService
 }
 
-func NewWriterHandler(s service.WriterService) *WriterHandler {
-	// 🟢 แก้ไขตรงนี้: รับเข้ามาเป็น Interface แล้วส่งมอบให้โครงสร้างเรียกใช้ได้เลย ไม่ต้องใส่ & นำหน้าแล้วค่ะ
-	return &WriterHandler{service: s}
+func NewWriterHandler(s service.WriterService, ms service.MediaService) *WriterHandler {
+	return &WriterHandler{service: s, mediaService: ms}
 }
 
 // ✍️ 1. ท่อยื่นคำขอเป็นนักเขียน -> POST /api/writers/apply
@@ -55,6 +54,21 @@ func (h *WriterHandler) Apply(w http.ResponseWriter, r *http.Request) {
 
 		if genresValue := r.FormValue("genres"); genresValue != "" {
 			_ = json.Unmarshal([]byte(genresValue), &req.Genres)
+		}
+
+		file, handler, err := r.FormFile("avatar")
+		if err != nil && err != http.ErrMissingFile {
+			http.Error(w, "ไม่สามารถอ่านไฟล์รูปภาพได้", http.StatusBadRequest)
+			return
+		}
+		if err == nil {
+			defer file.Close()
+			uploadedURL, uploadErr := h.mediaService.UploadImage(r.Context(), handler)
+			if uploadErr != nil {
+				http.Error(w, "ไม่สามารถอัปโหลดรูปภาพได้: "+uploadErr.Error(), http.StatusBadRequest)
+				return
+			}
+			req.AvatarURL = uploadedURL
 		}
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

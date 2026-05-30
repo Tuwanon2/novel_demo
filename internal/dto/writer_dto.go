@@ -12,6 +12,7 @@ type WriterApplyRequest struct {
 	EmailWriter     string   `json:"email_writer"`
 	ContactRequired string   `json:"contact_required"` // 👈 ช่องทางติดต่อที่ 1 (บังคับ)
 	ContactOptional string   `json:"contact_optional"` // 👈 ช่องทางติดต่อที่ 2 (ไม่บังคับ)
+	AvatarURL       string   `json:"avatar_url,omitempty"`
 }
 
 // WriterRequestResponse สำหรับส่งกลับไปให้หน้าแอดมินดูคำขอ

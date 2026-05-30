@@ -97,6 +97,10 @@ func (r *postgresSceneRepository) UpdateScene(scene models.Scene) error {
 	return UpdateScene(r.db, scene)
 }
 
+func (r *postgresSceneRepository) DeleteScene(sceneID int) error {
+	return DeleteScene(r.db, sceneID)
+}
+
 func (r *postgresSceneRepository) GetChoiceByID(choiceID int) (*models.Choice, error) {
 	return GetChoiceByID(r.db, choiceID)
 }
@@ -133,6 +137,10 @@ func (r *postgresChapterRepository) CreateChapter(chapter models.Chapter) (int, 
 
 func (r *postgresChapterRepository) UpdateChapter(chapter models.Chapter) error {
 	return UpdateChapter(r.db, chapter)
+}
+
+func (r *postgresChapterRepository) DeleteChapter(chapterID int) error {
+	return DeleteChapter(r.db, chapterID)
 }
 
 // ======= Social Repository Methods =======

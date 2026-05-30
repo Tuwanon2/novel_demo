@@ -113,7 +113,7 @@ func GetNovelDetailHandler(novelService service.NovelService, sceneService servi
 }
 
 // GET /novels/{id}/chapters
-func GetChaptersByNovelHandler(chapterService service.ChapterService) http.HandlerFunc {
+func GetChaptersByNovelHandler(chapterService service.ChapterService, novelService service.NovelService, writerService service.WriterService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", "only GET is supported")
@@ -132,6 +132,35 @@ func GetChaptersByNovelHandler(chapterService service.ChapterService) http.Handl
 		if err != nil || novelID <= 0 {
 			RespondWithError(w, http.StatusBadRequest, "invalid novel_id", err.Error())
 			return
+		}
+
+		// 🔒 ตรวจสอบสิทธิ์: ถ้าเป็นการเรียกจากผู้ใช้ที่ login แล้ว ต้องเช็คว่านิยายนี้เป็นของเขาหรือเปล่า
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if ok && userID != 0 {
+			// ผู้ใช้ logged in - ต้องตรวจสอบ ownership
+			writer, err := writerService.GetWriterByUserID(int(userID))
+			if err != nil || writer == nil {
+				// ไม่ใช่นักเขียน แต่ขอข้อมูล chapter - อาจเป็นผู้อ่าน ให้ return 403
+				WriteError(w, http.StatusForbidden, "forbidden: คุณไม่มีสิทธิ์ดูข้อมูลนี้")
+				return
+			}
+
+			novelDetail, err := novelService.GetNovelDetail(novelID)
+			if err != nil {
+				WriteError(w, http.StatusNotFound, "novel not found")
+				return
+			}
+
+			novelPtr, ok := novelDetail.(*models.Novel)
+			if !ok || novelPtr == nil {
+				WriteError(w, http.StatusInternalServerError, "failed to load novel details")
+				return
+			}
+
+			if novelPtr.AuthorID != writer.WriterID {
+				WriteError(w, http.StatusForbidden, "forbidden: คุณไม่มีสิทธิ์ดูบทของนิยายเรื่องนี้")
+				return
+			}
 		}
 
 		chapters, err := chapterService.GetChaptersByNovelID(novelID)

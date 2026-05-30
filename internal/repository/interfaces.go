@@ -24,6 +24,7 @@ type SceneRepository interface {
 	GetScenesByChapterID(chapterID int) ([]models.Scene, error)
 	CreateScene(scene models.Scene) (int, error)
 	UpdateScene(scene models.Scene) error
+	DeleteScene(sceneID int) error
 	CreateChoice(choice models.Choice) (int, error)
 	UpdateChoice(choice models.Choice) error
 	DeleteChoice(choiceID int) error
@@ -39,6 +40,7 @@ type ChapterRepository interface {
 	GetChapterByID(id int) (*models.Chapter, error)
 	CreateChapter(models.Chapter) (int, error)
 	UpdateChapter(models.Chapter) error
+	DeleteChapter(chapterID int) error
 }
 
 type SocialRepository interface {

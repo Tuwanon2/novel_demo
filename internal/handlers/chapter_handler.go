@@ -98,3 +98,25 @@ func UpdateChapterHandler(chapterService service.ChapterService) http.HandlerFun
 		RespondWithJSON(w, http.StatusOK, map[string]any{"message": "chapter updated"})
 	}
 }
+
+func DeleteChapterHandler(chapterService service.ChapterService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			RespondWithError3(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		chapterID, err := extractIDFromPath(r.URL.Path, "/chapters/")
+		if err != nil {
+			RespondWithError3(w, http.StatusBadRequest, "invalid chapter id")
+			return
+		}
+
+		if err := chapterService.DeleteChapter(chapterID); err != nil {
+			RespondWithError3(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		RespondWithJSON(w, http.StatusOK, map[string]any{"message": "chapter deleted"})
+	}
+}

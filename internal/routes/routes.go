@@ -24,8 +24,8 @@ func RegisterRoutes(
 	auth service.AuthService,
 ) {
 	// ประกาศตัวด่านหน้าสำหรับ Authen และ ระบบคำขอนักเขียน
-	authHandler := handlers.NewAuthHandler(&auth)
-	writerHandler := handlers.NewWriterHandler(writer)
+	authHandler := handlers.NewAuthHandler(&auth, media)
+	writerHandler := handlers.NewWriterHandler(writer, media)
 
 	// ------------------------------------------
 	// 🟢 Health & Authen Endpoints
@@ -147,11 +147,11 @@ func novelSubRouter(novel service.NovelService, scene service.SceneService, chap
 
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/chapters"):
-			handlers.GetChaptersByNovelHandler(chapter)(w, r)
+			handlers.GetChaptersByNovelHandler(chapter, novel, writer)(w, r)
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/comments"):
 			handlers.GetCommentsByNovelHandler(social)(w, r)
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/story-tree"):
-			handlers.GetStoryTreeHandler(scene)(w, r)
+			handlers.GetStoryTreeHandler(scene, novel, writer)(w, r)
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/start"):
 			handlers.StartReadingHandler(scene)(w, r)
 		case r.Method == http.MethodPut && isNumericIDPath(path):
@@ -176,9 +176,9 @@ func chapterSubRouter(scene service.SceneService, chapter service.ChapterService
 		// 🔒 PUT /chapters/:id - อัปเดตสถานะ/ชื่อบท
 		case r.Method == http.MethodPut && isNumericIDPath(path):
 			middleware.RequireAuth(http.HandlerFunc(handlers.UpdateChapterHandler(chapter))).ServeHTTP(w, r)
-		// 🔒 DELETE /chapters/:id - ในอนาคตควรครอบด้วย RequireAuth
-		// case r.Method == http.MethodDelete && isNumericIDPath(path):
-		// 	middleware.RequireAuth(http.HandlerFunc(...)).ServeHTTP(w, r)
+		// 🔒 DELETE /chapters/:id - ลบตอน พร้อม RequireAuth
+		case r.Method == http.MethodDelete && isNumericIDPath(path):
+			middleware.RequireAuth(http.HandlerFunc(handlers.DeleteChapterHandler(chapter))).ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -198,9 +198,11 @@ func sceneSubRouter(scene service.SceneService, social service.SocialService) ht
 		// 🔒 PUT /scenes/:id - อัปเดตฉากนิยาย
 		case r.Method == http.MethodPut && isNumericIDPath(path):
 			middleware.RequireAuth(http.HandlerFunc(handlers.UpdateSceneHandler(scene))).ServeHTTP(w, r)
-		// 🔒 DELETE /scenes/:id - ในอนาคตควรครอบด้วย RequireAuth
-		// case r.Method == http.MethodDelete && isNumericIDPath(path):
-		// 	middleware.RequireAuth(http.HandlerFunc(...)).ServeHTTP(w, r)
+			return
+		// 🔒 DELETE /scenes/:id - ลบฉากนิยาย
+		case r.Method == http.MethodDelete && isNumericIDPath(path):
+			middleware.RequireAuth(http.HandlerFunc(handlers.DeleteSceneHandler(scene))).ServeHTTP(w, r)
+			return
 		default:
 			http.NotFound(w, r)
 		}

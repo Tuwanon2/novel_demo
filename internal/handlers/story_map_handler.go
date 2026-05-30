@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"novel-be/internal/middleware"
 	"novel-be/internal/models"
 	"novel-be/internal/service"
 	"strconv"
@@ -17,14 +18,34 @@ func truncateContent(content string, maxLen int) string {
 }
 
 // GetStoryTreeHandler สำหรับดึงโครงสร้าง Node และ Edge ของนิยายทั้งเรื่อง พร้อมคำนวณสถิติและระบบกันสปอยล์
-func GetStoryTreeHandler(sceneService service.SceneService) http.HandlerFunc {
+func GetStoryTreeHandler(sceneService service.SceneService, novelService service.NovelService, writerService service.WriterService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		novelID, err := extractIDFromPath(r.URL.Path, "/novels/")
 		if err != nil {
 			WriteError(w, http.StatusBadRequest, "invalid novel id")
 			return
 		}
-		userID, _ := strconv.Atoi(r.URL.Query().Get("user_id"))
+
+		// 🔒 ตรวจสอบสิทธิ์: ถ้าเป็นการเรียกจากผู้ใช้ที่ login แล้ว ต้องเช็คว่านิยายนี้เป็นของเขาหรือเปล่า
+		authUserID, ok := middleware.GetUserIDFromContext(r.Context())
+		userIDFromQuery, _ := strconv.Atoi(r.URL.Query().Get("user_id"))
+		if ok && authUserID != 0 {
+			// ผู้ใช้ logged in - ต้องตรวจสอบ ownership (สำหรับไปที่ writer's story tree view)
+			writer, err := writerService.GetWriterByUserID(int(authUserID))
+			if err == nil && writer != nil {
+				// เป็นนักเขียน - ตรวจสอบว่านิยายเป็นของเขา
+				novelDetail, err := novelService.GetNovelDetail(novelID)
+				if err == nil {
+					novelPtr, ok := novelDetail.(*models.Novel)
+					if ok && novelPtr != nil && novelPtr.AuthorID != writer.WriterID {
+						WriteError(w, http.StatusForbidden, "forbidden: คุณไม่มีสิทธิ์ดูแผนผังนิยายเรื่องนี้")
+						return
+					}
+				}
+			}
+		}
+
+		userID := userIDFromQuery
 
 		tree, err := sceneService.GetStoryTree(novelID, userID)
 		if err != nil {

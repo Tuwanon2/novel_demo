@@ -17,10 +17,10 @@ func NewWriterRepository(db *sql.DB) WriterRepository {
 
 // 🟢 ปรับปรุงฟังก์ชันนี้ให้ตรงตามสัญญา (want GetWriterByID(int) (*models.Writer, error))
 func (r *sqlWriterRepository) GetWriterByID(id int) (*models.Writer, error) {
-	query := `SELECT writer_id, user_id, pen_name, bio, email_writer, contact_info FROM writers WHERE writer_id = $1`
+	query := `SELECT writer_id, user_id, pen_name, bio, email_writer, contact_info, avatar_url FROM writers WHERE writer_id = $1`
 
 	var w models.Writer
-	err := r.db.QueryRow(query, id).Scan(&w.WriterID, &w.UserID, &w.PenName, &w.Bio, &w.EmailWriter, &w.ContactInfo)
+	err := r.db.QueryRow(query, id).Scan(&w.WriterID, &w.UserID, &w.PenName, &w.Bio, &w.EmailWriter, &w.ContactInfo, &w.AvatarURL)
 	if err != nil {
 		return nil, err
 	}
@@ -29,10 +29,10 @@ func (r *sqlWriterRepository) GetWriterByID(id int) (*models.Writer, error) {
 }
 
 func (r *sqlWriterRepository) GetWriterByUserID(userID int) (*models.Writer, error) {
-	query := `SELECT writer_id, user_id, pen_name, bio, email_writer, contact_info, status FROM writers WHERE user_id = $1 AND status = 'approved' LIMIT 1`
+	query := `SELECT writer_id, user_id, pen_name, bio, email_writer, contact_info, avatar_url, status FROM writers WHERE user_id = $1 AND status = 'approved' LIMIT 1`
 
 	var w models.Writer
-	err := r.db.QueryRow(query, userID).Scan(&w.WriterID, &w.UserID, &w.PenName, &w.Bio, &w.EmailWriter, &w.ContactInfo, &w.Status)
+	err := r.db.QueryRow(query, userID).Scan(&w.WriterID, &w.UserID, &w.PenName, &w.Bio, &w.EmailWriter, &w.ContactInfo, &w.AvatarURL, &w.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -41,10 +41,10 @@ func (r *sqlWriterRepository) GetWriterByUserID(userID int) (*models.Writer, err
 }
 
 func (r *sqlWriterRepository) GetLatestWriterApplicationByUserID(userID int) (*models.Writer, error) {
-	query := `SELECT writer_id, user_id, pen_name, bio, email_writer, contact_info, status FROM writers WHERE user_id = $1 ORDER BY applied_at DESC LIMIT 1`
+	query := `SELECT writer_id, user_id, pen_name, bio, email_writer, contact_info, avatar_url, status FROM writers WHERE user_id = $1 ORDER BY applied_at DESC LIMIT 1`
 
 	var w models.Writer
-	err := r.db.QueryRow(query, userID).Scan(&w.WriterID, &w.UserID, &w.PenName, &w.Bio, &w.EmailWriter, &w.ContactInfo, &w.Status)
+	err := r.db.QueryRow(query, userID).Scan(&w.WriterID, &w.UserID, &w.PenName, &w.Bio, &w.EmailWriter, &w.ContactInfo, &w.AvatarURL, &w.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -74,11 +74,11 @@ func (r *sqlWriterRepository) Apply(ctx context.Context, userID uint, req dto.Wr
 	// 2. บันทึกข้อมูลใบสมัครเข้าตาราง writers ก่อน และเอา writer_id กลับออกมา
 	var writerID int
 	queryWriter := `
-		INSERT INTO writers (user_id, name_lastname, pen_name, bio, email_writer, contact_info, status, applied_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
+		INSERT INTO writers (user_id, name_lastname, pen_name, bio, email_writer, contact_info, avatar_url, status, applied_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW())
 		RETURNING writer_id
 	`
-	err = tx.QueryRowContext(ctx, queryWriter, userID, req.NameLastname, req.PenName, req.Bio, req.EmailWriter, contactJSON).Scan(&writerID)
+	err = tx.QueryRowContext(ctx, queryWriter, userID, req.NameLastname, req.PenName, req.Bio, req.EmailWriter, contactJSON, req.AvatarURL).Scan(&writerID)
 	if err != nil {
 		return err
 	}

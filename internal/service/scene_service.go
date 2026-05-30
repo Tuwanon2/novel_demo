@@ -103,7 +103,7 @@ func (s *sceneService) CreateScene(scene models.Scene) (int, error) {
 	// Logic: ถ้าเป็นฉากแรกของเรื่อง ให้เป็น start เสมอ
 	if count == 0 {
 		scene.Type = "start"
-	} else if scene.Type == "" {
+	} else if scene.Type == "" || strings.EqualFold(scene.Type, "draft") {
 		scene.Type = "normal"
 	}
 
@@ -132,9 +132,19 @@ func (s *sceneService) UpdateScene(scene models.Scene) error {
 
 	if scene.Type == "" {
 		scene.Type = existing.Type
+	} else if existing.Type == "start" && scene.Type != "ending" {
+		scene.Type = "start"
 	}
 
 	return s.repo.UpdateScene(scene)
+}
+
+func (s *sceneService) DeleteScene(sceneID int) error {
+	_, err := s.repo.GetSceneByID(sceneID)
+	if err != nil {
+		return err
+	}
+	return s.repo.DeleteScene(sceneID)
 }
 
 func (s *sceneService) CreateChoice(choice models.Choice) (int, error) {

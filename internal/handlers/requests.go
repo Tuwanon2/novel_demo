@@ -15,6 +15,17 @@ type CreateNovelRequest struct {
 	AuthorID     int     `json:"author_id"`
 }
 
+func normalizeNovelStatus(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "publish", "published":
+		return "published"
+	case "completed":
+		return "completed"
+	default:
+		return "draft"
+	}
+}
+
 func (r *CreateNovelRequest) Validate() error {
 	if strings.TrimSpace(r.Title) == "" {
 		return errors.New("title is required")
@@ -22,6 +33,8 @@ func (r *CreateNovelRequest) Validate() error {
 	// 🟢 ปลดล็อกเรียบร้อย: ลบเช็ค r.AuthorID == 0 ออก เพื่อปล่อยให้ด่านตรวจ (Token) ฝั่งหลังบ้านยัดไอดีให้เอง
 	if strings.TrimSpace(r.Status) == "" {
 		r.Status = "draft"
+	} else {
+		r.Status = normalizeNovelStatus(r.Status)
 	}
 	return nil
 }
@@ -36,6 +49,10 @@ type UpdateNovelRequest struct {
 }
 
 func (r *UpdateNovelRequest) Validate() error {
+	if strings.TrimSpace(r.Status) != "" {
+		r.Status = normalizeNovelStatus(r.Status)
+	}
+
 	// At least one updatable field must be present
 	if strings.TrimSpace(r.Title) == "" && strings.TrimSpace(r.Status) == "" && r.Captions == nil && r.Introduction == nil && r.CoverImage == nil && len(r.CategoryIDs) == 0 {
 		return errors.New("at least one field is required")

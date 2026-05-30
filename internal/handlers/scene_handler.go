@@ -98,6 +98,23 @@ func UpdateSceneHandler(sceneService service.SceneService) http.HandlerFunc {
 	}
 }
 
+func DeleteSceneHandler(sceneService service.SceneService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sceneID, err := extractIDFromPath(r.URL.Path, "/scenes/")
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid id parameter")
+			return
+		}
+
+		if err := sceneService.DeleteScene(sceneID); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, map[string]any{"message": "scene deleted"})
+	}
+}
+
 // ... GetSceneHandler คงเดิม ...
 func GetSceneHandler(sceneService service.SceneService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

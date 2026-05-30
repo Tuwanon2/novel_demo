@@ -23,6 +23,7 @@ type SceneService interface {
 	GetScenesByChapterID(int) ([]models.Scene, error)
 	CreateScene(models.Scene) (int, error)
 	UpdateScene(models.Scene) error
+	DeleteScene(sceneID int) error
 	SyncSceneChoices(fromSceneID int, rawChoices []interface{}) error
 	CreateChoice(models.Choice) (int, error)
 	UpdateChoice(models.Choice) error
@@ -36,6 +37,7 @@ type ChapterService interface {
 	GetChapterByID(id int) (*models.Chapter, error)
 	CreateChapter(models.Chapter) (int, error)
 	UpdateChapter(models.Chapter) error
+	DeleteChapter(chapterID int) error
 }
 
 type SocialService interface {
