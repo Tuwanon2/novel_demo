@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom"; // 1. เพิ่มการ Import ReactDOM เข้ามาตรงนี้
 import "./WriterRegisterPage.css";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../../components/Navbar/Navbar";
 import ReactQuill from "react-quill-new";
 import "quill/dist/quill.snow.css";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
@@ -472,7 +471,6 @@ const WriterRegisterPage = ({ onComplete, onBack }) => {
 
     return (
         <>
-            <Navbar />
             <div className="wr-page">
                 {/* [แก้ไข] นำ wr-cancel-btn (ปุ่มกากบาท) ออกจากส่วนหัวทั้งหมดตามหลัก UX */}
                 <div className="wr-header-wrapper">

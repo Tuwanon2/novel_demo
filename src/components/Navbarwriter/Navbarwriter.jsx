@@ -389,16 +389,44 @@ const Navbarwriter = () => {
     // ─────────────────────────────────────
     // Logout
     // ─────────────────────────────────────
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-
-        localStorage.removeItem("selectedNovel");
-
-        setSelectedNovel(null);
-
-        setIsLoggedIn(false);
-
-        navigate("/");
+    const handleLogout = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (token) {
+                await fetch(`${API_BASE_URL}/api/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }).catch(err => console.warn("Logout API warning:", err));
+            }
+        } catch (err) {
+            console.error("Logout error:", err);
+        } finally {
+            // ✅ ทำความสะอาด localStorage
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            localStorage.removeItem("selectedNovel");
+            localStorage.removeItem("user_email");
+            
+            // ✅ Reset states
+            setSelectedNovel(null);
+            setIsLoggedIn(false);
+            setIsDropdownOpen(false);
+            setUserData({
+                username: "",
+                email: "",
+                pic_profile: "",
+                role: "",
+            });
+            
+            // ✅ Navigate ไปหน้าแรก
+            navigate("/");
+            
+            // ✅ Reload เพื่อให้ NavbarWrapper ถูก re-render
+            window.location.href = "/";
+        }
     };
 
     return (

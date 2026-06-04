@@ -7,16 +7,55 @@
 .wr-page {
     width: 100%;
     max-width: 950px;
+
     min-height: 100vh;
 
     margin: 0 auto;
-    padding: 40px 80px 80px;
+    padding: 40px 80px;
 
     background: var(--white);
 
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .wr-page {
+    max-width: 100%;
+    padding: 40px 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .wr-page {
+    padding: 40px 32px;
+  }
+
+  .wr-step-content--split {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .wr-step-content {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .wr-page {
+    padding: 40px 20px;
+  }
+
+  .wr-header__title {
+    font-size: 28px;
+  }
+
+  .wr-cancel-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -826,7 +865,7 @@
   transform: scale(0.98);
 }
 
-/* ════════════════════════════════════════
+/* ══════════════════════════════════════════
    Confirm Header Wrapper (Remove from Step 4)
 ══════════════════════════════════════════ */
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, createContext, useContext } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -36,30 +36,50 @@ import { i } from "framer-motion/client";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 // ======================================================
-// Reader Layout
+// NavbarContext - ควบคุมการแสดง/ซ่อน Navbar
+// ======================================================
+const NavbarContext = createContext(true);
+
+export const useNavbar = () => useContext(NavbarContext);
+
+// ======================================================
+// Reader Layout (มี Navbar)
 // ======================================================
 const ReaderLayout = ({ children }) => {
   return (
-    <>
-      <Navbar />
+    <NavbarContext.Provider value={true}>
       <main className="reader-layout">
         {children}
       </main>
-    </>
+    </NavbarContext.Provider>
   );
 };
 
 // ======================================================
-// Writer Layout 
+// Auth Layout (ไม่มี Navbar)
+// ======================================================
+const AuthLayout = ({ children }) => {
+  return (
+    <NavbarContext.Provider value={false}>
+      <main className="auth-page-wrapper">
+        {children}
+      </main>
+    </NavbarContext.Provider>
+  );
+};
+
+// ======================================================
+// Writer Layout (มี Navbar)
 // ======================================================
 const WriterLayout = ({ children, onNavigate }) => {
   return (
-    <div className="writer-layout">
-      <NavbarWriter onNavigate={onNavigate} />
-      <main className="writer-layout__content">
-        {children}
-      </main>
-    </div>
+    <NavbarContext.Provider value={true}>
+      <div className="writer-layout">
+        <main className="writer-layout__content">
+          {children}
+        </main>
+      </div>
+    </NavbarContext.Provider>
   );
 };
 
@@ -312,6 +332,21 @@ const getRoleFromToken = () => {
   }
 };
 
+// ======================================================
+// NavbarWrapper - เลือก Navbar ตามสิทธิ์ผู้ใช้
+// ======================================================
+const NavbarWrapper = () => {
+  const showNavbar = useNavbar();
+  
+  if (!showNavbar) return null;
+  
+  const role = getRoleFromToken();
+  return role === 'writer' ? <NavbarWriter /> : <Navbar />;
+};
+
+// ======================================================
+// RequireAdminRoute - ตรวจสอบสิทธิ์ผู้ใช้
+// ======================================================
 const RequireAdminRoute = ({ children }) => {
   const role = getRoleFromToken();
   if (role !== 'admin') {
@@ -329,11 +364,34 @@ const RedirectAdminIfNeeded = ({ children }) => {
 };
 
 // ======================================================
+// Auth Route Wrappers
+// ======================================================
+const AuthPageRoute = () => {
+  return (
+    <AuthLayout>
+      <AuthPage />
+    </AuthLayout>
+  );
+};
+
+const WriterRegisterPageRoute = () => {
+  return (
+    <AuthLayout>
+      <WriterRegisterPage 
+        onComplete={() => console.log("สมัครสมาชิกสำเร็จ")} 
+        onBack={() => console.log("กดย้อนกลับหน้าแรก")} 
+      />
+    </AuthLayout>
+  );
+};
+
+// ======================================================
 // Main Application Component
 // ======================================================
 function App() {
   return (
     <Router>
+      <NavbarWrapper />
       <Routes>
         {/* Reader Routes */}
         <Route path="/" element={<RedirectAdminIfNeeded><HomePageRoute /></RedirectAdminIfNeeded>} />
@@ -350,25 +408,13 @@ function App() {
         <Route path="/writer/:novelId/storytree" element={<RedirectAdminIfNeeded><WriterStoryTreeRoute /></RedirectAdminIfNeeded>} />
         <Route path="/writer/storytree/:novelId" element={<RedirectAdminIfNeeded><LegacyWriterStoryTreeRedirect /></RedirectAdminIfNeeded>} />
         <Route path="/writer/:novelId/edit" element={<RedirectAdminIfNeeded><EditNovelRoute /></RedirectAdminIfNeeded>} />
-        
+          
         {/* Admin Routes */}
         <Route path="/admin/manage-users" element={<RequireAdminRoute><Manageusers /></RequireAdminRoute>} />
 
-        {/* Auth Routes */}
-        <Route path="/login-register" element={<AuthPage />} />
-        
-        {/* 📝 แก้ไขจุดนี้: ส่งฟังก์ชันเปล่าเพื่อไม่ให้เกิด Error เวลาคอมโพเนนต์เรียกใช้ Props */}
-        <Route 
-          path="/registerwriter" 
-          element={
-            <RedirectAdminIfNeeded>
-              <WriterRegisterPage 
-                onComplete={() => console.log("สมัครสมาชิกสำเร็จ")} 
-                onBack={() => console.log("กดย้อนกลับหน้าแรก")} 
-              />
-            </RedirectAdminIfNeeded>
-          } 
-        />
+        {/* Auth Routes - ไม่มี Navbar */}
+        <Route path="/login-register" element={<AuthPageRoute />} />
+        <Route path="/registerwriter" element={<WriterRegisterPageRoute />} />
       </Routes>
     </Router>
   );

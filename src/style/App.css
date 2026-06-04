@@ -128,3 +128,28 @@ a {
   min-height: 100vh;
 }
 
+/* ======================================================
+   Auth Layout (เต็มจอ ไม่มี Navbar)
+====================================================== */
+
+.auth-page-wrapper {
+  min-height: 100vh;
+  width: 100%;
+
+}
+
+/* ======================================================
+   Writer Layout
+====================================================== */
+
+.writer-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.writer-layout__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}

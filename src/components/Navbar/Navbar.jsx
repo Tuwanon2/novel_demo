@@ -100,22 +100,33 @@ const Navbar = () => {
     const handleLogout = async () => {
         try {
             const token = localStorage.getItem("token");
-            await fetch('/api/logout', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            if (token) {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }).catch(err => console.warn("Logout API warning:", err));
+            }
         } catch (err) {
             console.error("Logout error:", err);
         } finally {
+            // ✅ ทำความสะอาด localStorage
             localStorage.removeItem("token");
+            localStorage.removeItem("user");
             localStorage.removeItem("user_email");
+            
+            // ✅ Reset states
             setIsLoggedIn(false);
             setIsDropdownOpen(false);
             setUserData({ username: "", email: "", pic_profile: "", role: "" });
+            
+            // ✅ Navigate ไปหน้าแรก
             navigate("/");
+            
+            // ✅ Reload เพื่อให้ NavbarWrapper ถูก re-render
+            window.location.href = "/";
         }
     };
 
