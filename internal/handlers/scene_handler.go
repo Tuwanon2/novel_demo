@@ -41,7 +41,7 @@ func CreateSceneHandler(sceneService service.SceneService) http.HandlerFunc {
 		})
 
 		if err != nil {
-			WriteError(w, http.StatusInternalServerError, err.Error())
+			WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -83,7 +83,7 @@ func UpdateSceneHandler(sceneService service.SceneService) http.HandlerFunc {
 		}
 
 		if err := sceneService.UpdateScene(scene); err != nil {
-			WriteError(w, http.StatusInternalServerError, err.Error())
+			WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 

@@ -116,7 +116,7 @@ func DeleteNovelHandler(novelService service.NovelService, writerService service
 	}
 }
 
-func UpdateNovelHandler(novelService service.NovelService, writerService service.WriterService) http.HandlerFunc {
+func UpdateNovelHandler(novelService service.NovelService, sceneService service.SceneService, writerService service.WriterService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -202,6 +202,14 @@ func UpdateNovelHandler(novelService service.NovelService, writerService service
 			CategoryIDs:  categoryIDs,
 			CoverImage:   coverImage,
 			Status:       status,
+		}
+
+		// Validate story structure before publishing
+		if status == "published" && novelPtr.Status != "published" {
+			if err := sceneService.ValidateStoryForPublish(novelID); err != nil {
+				WriteError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 		}
 
 		if err := novelService.UpdateNovel(updatedNovel); err != nil {

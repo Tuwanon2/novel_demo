@@ -78,7 +78,7 @@ func RegisterRoutes(
 	// 🟢 กลุ่มแยกย่อยตาม Resource
 	// ------------------------------------------
 	mux.Handle("/categories", middleware.RequestLogger(handlers.GetAllCategoriesHandler(category)))
-	mux.Handle("/novels/", middleware.RequestLogger(http.HandlerFunc(novelSubRouter(novel, scene, chapter, social, writer))))
+	mux.Handle("/novels/", middleware.RequestLogger(http.HandlerFunc(novelSubRouter(novel, scene, chapter, social, writer, reading))))
 
 	// 🔒 POST /chapters ต้องมีการยืนยันตัวตนผู้ใช้ (JWT Token)
 	mux.Handle("/chapters", middleware.RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +141,7 @@ func RegisterRoutes(
 // 🛠️ Sub-Routers โซนทำความสะอาด สับเปลี่ยน Logic ออกมาข้างนอกเพื่อไม่ให้โค้ดหลักบวม
 // =========================================================================
 
-func novelSubRouter(novel service.NovelService, scene service.SceneService, chapter service.ChapterService, social service.SocialService, writer service.WriterService) http.HandlerFunc {
+func novelSubRouter(novel service.NovelService, scene service.SceneService, chapter service.ChapterService, social service.SocialService, writer service.WriterService, reading service.ReadingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/novels/"), "/")
 
@@ -154,8 +154,10 @@ func novelSubRouter(novel service.NovelService, scene service.SceneService, chap
 			handlers.GetStoryTreeHandler(scene, novel, writer)(w, r)
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/start"):
 			handlers.StartReadingHandler(scene)(w, r)
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/restart"):
+			middleware.RequireAuth(http.HandlerFunc(handlers.RestartStoryHandler(scene, reading))).ServeHTTP(w, r)
 		case r.Method == http.MethodPut && isNumericIDPath(path):
-			middleware.RequireAuth(http.HandlerFunc(handlers.UpdateNovelHandler(novel, writer))).ServeHTTP(w, r)
+			middleware.RequireAuth(http.HandlerFunc(handlers.UpdateNovelHandler(novel, scene, writer))).ServeHTTP(w, r)
 		case r.Method == http.MethodDelete && isNumericIDPath(path):
 			middleware.RequireAuth(http.HandlerFunc(handlers.DeleteNovelHandler(novel, writer))).ServeHTTP(w, r)
 		case r.Method == http.MethodGet && isNumericIDPath(path):

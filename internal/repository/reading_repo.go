@@ -116,3 +116,40 @@ func (r *postgresReadingRepository) InsertUserEnding(userID, novelID, sceneID in
 	_, err := r.db.Exec(query, userID, sceneID)
 	return err
 }
+
+func (r *postgresReadingRepository) ResetReadingProgress(userID, novelID int) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// ลบ progress ปัจจุบัน
+	if _, err := tx.Exec(`DELETE FROM reading_progress WHERE user_id = $1 AND novel_id = $2`, userID, novelID); err != nil {
+		return err
+	}
+
+	// ลบประวัติการเลือกทางเลือกเฉพาะนิยายนี้
+	if _, err := tx.Exec(`
+		DELETE FROM user_choice_history
+		WHERE user_id = $1
+		AND choice_id IN (
+			SELECT choice_id FROM choices
+			WHERE from_scene_id IN (SELECT scene_id FROM scenes WHERE novel_id = $2)
+			   OR to_scene_id IN (SELECT scene_id FROM scenes WHERE novel_id = $2)
+		)
+	`, userID, novelID); err != nil {
+		return err
+	}
+
+	// ลบประวัติการเข้าฉากสำหรับนิยายเรื่องนี้
+	if _, err := tx.Exec(`
+		DELETE FROM user_scene_history
+		WHERE user_id = $1
+		AND scene_id IN (SELECT scene_id FROM scenes WHERE novel_id = $2)
+	`, userID, novelID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

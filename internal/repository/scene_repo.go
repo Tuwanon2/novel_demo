@@ -49,7 +49,7 @@ func GetSceneByID(db *sql.DB, id int) (*models.Scene, error) {
 func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 	var endingTitle, endingType, endingDescription sql.NullString
 
-	// 🎯 ใช้ INNER JOIN ข้ามสายพันธุ์ตรงจุดสตาร์ทด้วยเช่นกันครับน้า
+	// 🎯 พยายามดึงฉากที่ถูกมาร์กเป็น start ก่อน
 	row := db.QueryRow(`
 		SELECT 
 			s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, 
@@ -67,10 +67,33 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 	err := row.Scan(
 		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
 		&endingTitle, &endingType, &endingDescription,
-		&s.NovelTitle, &s.ChapterTitle, // 👈 แสกนค่าชื่อเรื่องและชื่อตอนลงตัวแปรพิเศษ
+		&s.NovelTitle, &s.ChapterTitle,
 	)
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			// ถ้าไม่มีฉากประเภท start ให้ fallback ไปฉากแรกสุดของนิยายแทน
+			row = db.QueryRow(`
+				SELECT 
+					s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, 
+					s.ending_title, s.ending_type, s.ending_description,
+					n.title AS novel_title,
+					c.title AS chapter_title
+				FROM scenes s
+				INNER JOIN novels n ON s.novel_id = n.novel_id
+				INNER JOIN chapters c ON s.chapter_id = c.chapter_id
+				WHERE s.novel_id = $1
+				ORDER BY c.chapter_id, s.scene_id
+				LIMIT 1
+			`, novelID)
+			err = row.Scan(
+				&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
+				&endingTitle, &endingType, &endingDescription,
+				&s.NovelTitle, &s.ChapterTitle,
+			)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if endingTitle.Valid {
@@ -220,10 +243,11 @@ func (r *postgresSceneRepository) GetNodesByNovelIDForUser(novelID int, userID i
 	query := `
         SELECT s.scene_id, s.title, s.type, c.title AS chapter_title, c.episode AS chapter_episode, s.content,
                s.ending_title, s.ending_description,
-               CASE WHEN ush.id IS NOT NULL THEN true ELSE false END as is_unlocked
+               CASE WHEN ush.id IS NOT NULL OR ue.id IS NOT NULL THEN true ELSE false END as is_unlocked
         FROM scenes s
         LEFT JOIN chapters c ON s.chapter_id = c.chapter_id
         LEFT JOIN user_scene_history ush ON s.scene_id = ush.scene_id AND ush.user_id = $2
+        LEFT JOIN user_endings ue ON s.scene_id = ue.scene_id AND ue.user_id = $2
         WHERE s.novel_id = $1`
 
 	rows, err := r.db.Query(query, novelID, userID)

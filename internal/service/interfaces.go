@@ -29,6 +29,7 @@ type SceneService interface {
 	UpdateChoice(models.Choice) error
 	DeleteChoice(choiceID int) error
 	GetStoryTree(novelID int, userID int) (models.StoryTreeResponse, error)
+	ValidateStoryForPublish(novelID int) error
 	Ping() error
 }
 
@@ -51,6 +52,7 @@ type SocialService interface {
 type ReadingService interface {
 	GetProgress(userID, novelID int) (*models.ReadingProgress, error)
 	SaveProgress(progress models.ReadingProgress) error
+	ResetProgress(userID, novelID int) error
 	RecordChoiceHistory(history models.ChoiceHistory) error
 	RecordEnding(userID, novelID, sceneID int) error
 }

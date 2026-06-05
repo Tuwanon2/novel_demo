@@ -83,3 +83,8 @@ type UploadResponseDTO struct {
 	URL      string `json:"url"`
 	Size     int64  `json:"size"`
 }
+
+type RestartStoryResponseDTO struct {
+	NovelID      int `json:"novel_id"`
+	StartSceneID int `json:"start_scene_id"`
+}

@@ -31,6 +31,7 @@ type SceneRepository interface {
 	CountScenesInNovel(novelID int) (int, error)
 	CheckChoiceExists(fromID, toID int, label string) (bool, error)
 	CheckSceneExists(chapterID int, title string) (bool, error)
+	GetNodesByNovelID(novelID int) ([]models.SceneNode, error)
 	GetNodesByNovelIDForUser(novelID int, userID int) ([]models.SceneNode, error)
 	GetEdgesByNovelID(novelID int) ([]models.SceneEdge, error)
 }
@@ -54,6 +55,7 @@ type SocialRepository interface {
 type ReadingRepository interface {
 	GetReadingProgress(userID, novelID int) (*models.ReadingProgress, error)
 	SaveReadingProgress(userID, novelID, sceneID int) error
+	ResetReadingProgress(userID, novelID int) error
 	InsertSceneHistory(userID, sceneID int) error
 	InsertChoiceHistory(history models.ChoiceHistory) error
 	InsertUserEnding(userID, novelID, sceneID int) error

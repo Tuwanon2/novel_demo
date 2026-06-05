@@ -103,6 +103,9 @@ func (s *sceneService) CreateScene(scene models.Scene) (int, error) {
 	// Logic: ถ้าเป็นฉากแรกของเรื่อง ให้เป็น start เสมอ
 	if count == 0 {
 		scene.Type = "start"
+	} else if strings.EqualFold(scene.Type, "start") {
+		// Reject duplicate start scene
+		return 0, errors.New("Novel already has a start scene")
 	} else if scene.Type == "" || strings.EqualFold(scene.Type, "draft") {
 		scene.Type = "normal"
 	}
@@ -120,6 +123,11 @@ func (s *sceneService) UpdateScene(scene models.Scene) error {
 		return err
 	}
 
+	// Validation: Prevent start scene from becoming an ending
+	if existing.Type == "start" && scene.Type == "ending" {
+		return errors.New("Start scene cannot be an ending scene")
+	}
+
 	if scene.Title != "" {
 		scene.Title = strings.TrimSpace(scene.Title)
 	} else {
@@ -132,8 +140,21 @@ func (s *sceneService) UpdateScene(scene models.Scene) error {
 
 	if scene.Type == "" {
 		scene.Type = existing.Type
-	} else if existing.Type == "start" && scene.Type != "ending" {
+	} else if existing.Type == "start" {
+		// Force start scene to remain start
 		scene.Type = "start"
+	}
+
+	// Validation: Prevent ending scene from having outgoing choices
+	effectiveType := scene.Type
+	if effectiveType == "" {
+		effectiveType = existing.Type
+	}
+	if effectiveType == "ending" {
+		choices, err := s.repo.GetChoicesBySceneID(scene.SceneID)
+		if err == nil && len(choices) > 0 {
+			return errors.New("Ending scene cannot have outgoing choices")
+		}
 	}
 
 	return s.repo.UpdateScene(scene)
@@ -145,6 +166,59 @@ func (s *sceneService) DeleteScene(sceneID int) error {
 		return err
 	}
 	return s.repo.DeleteScene(sceneID)
+}
+
+func (s *sceneService) ValidateStoryForPublish(novelID int) error {
+	// Get all scenes for this novel
+	nodes, err := s.repo.GetNodesByNovelID(novelID)
+	if err != nil {
+		return err
+	}
+
+	// Get all edges (choices) for this novel
+	edges, err := s.repo.GetEdgesByNovelID(novelID)
+	if err != nil {
+		return err
+	}
+
+	// Build map of outgoing choice counts for each scene
+	outgoingCount := make(map[int]int)
+	for _, edge := range edges {
+		outgoingCount[edge.FromID]++
+	}
+
+	// Find start and ending scenes
+	var startScene *models.SceneNode
+	endingScenes := make([]*models.SceneNode, 0)
+
+	for i := range nodes {
+		if nodes[i].Type == "start" {
+			startScene = &nodes[i]
+		} else if nodes[i].Type == "ending" {
+			endingScenes = append(endingScenes, &nodes[i])
+		}
+	}
+
+	// Validation 1: Start scene must have at least 1 outgoing choice
+	if startScene == nil {
+		return errors.New("Story must have a start scene")
+	}
+	if startScene.ID > 0 {
+		if outgoingCount[startScene.ID] < 1 {
+			return errors.New("Start scene must have at least one choice")
+		}
+	}
+
+	// Validation 2: Ending scenes must have 0 outgoing choices
+	for _, ending := range endingScenes {
+		if ending.ID > 0 {
+			if outgoingCount[ending.ID] > 0 {
+				return errors.New("Ending scene cannot have outgoing choices")
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *sceneService) CreateChoice(choice models.Choice) (int, error) {

@@ -56,6 +56,7 @@ type SceneNode struct {
 	Content        string `json:"content"` // 🎯 เรื่องย่อท่อนสั้นๆ ประจำฉาก
 	Type           string `json:"type"`
 	IsUnlocked     bool   `json:"is_unlocked"`
+	IsCurrent      bool   `json:"is_current"` // 🎯 ฉากปัจจุบันที่ผู้เล่นอ่านค้างอยู่
 	ChapterTitle   string `json:"chapter_title,omitempty"`
 	ChapterEpisode int    `json:"chapter_episode,omitempty"`
 	Excerpt        string `json:"excerpt,omitempty"`
