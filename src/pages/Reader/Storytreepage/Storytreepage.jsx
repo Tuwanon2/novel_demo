@@ -581,7 +581,7 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 0, onNavigate }) => {
               {[
                 { label: "เส้นทางที่ผ่านแล้ว", val: stats.visitedScenes, total: stats.totalScenes },
                 { label: "ทางเลือกที่ค้นพบ", val: stats.discoveredChoices, total: stats.totalChoices },
-                { label: "ตอนจบที่ปลดล็อก", val: stats.unlockedEndings, total: stats.totalEndings },
+                { label: "ฉากจบที่ปลดล็อก", val: stats.unlockedEndings, total: stats.totalEndings },
               ].map((stat, i) => (
                 <div key={i} style={{ marginTop: i > 0 ? 14 : 0 }}>
                   <div className="stp__stat-item">
