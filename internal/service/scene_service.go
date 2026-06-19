@@ -410,6 +410,18 @@ func (s *sceneService) GetStoryTree(novelID int, userID int) (models.StoryTreeRe
 		return models.StoryTreeResponse{}, err
 	}
 
+	// ป้องกันกรณีข้อมูลซ้ำจาก query, ให้คงเฉพาะ Scene ID เดียวกันไว้ครั้งเดียว
+	uniqueNodes := make([]models.SceneNode, 0, len(nodes))
+	seenSceneIDs := make(map[int]struct{}, len(nodes))
+	for _, node := range nodes {
+		if _, ok := seenSceneIDs[node.ID]; ok {
+			continue
+		}
+		seenSceneIDs[node.ID] = struct{}{}
+		uniqueNodes = append(uniqueNodes, node)
+	}
+	nodes = uniqueNodes
+
 	// 🟢 ดึงชื่อเรื่องนิยายและ Current Scene ID
 	var novelTitle string
 	var currentSceneID int
