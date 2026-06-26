@@ -10,20 +10,35 @@
 /* Base button style */
 .action-buttons__read,
 .action-buttons__bookmark,
-.action-buttons__like {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 11px 20px;
-  border-radius: 10px;
-  font-family: 'Sarabun', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  border: none;
+.action-buttons__like{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+
+    padding:12px 22px;
+
+    border:none;
+
+    border-radius:999px !important;
+
+    overflow:hidden;
+
+    font-family:'Sarabun',sans-serif;
+    font-size:16px;
+    font-weight:600;
+
+    cursor:pointer;
+    white-space:nowrap;
+
+    appearance:none;
+    -webkit-appearance:none;
+
+    transition:.2s;
+}
+
+.action-buttons button{
+    border-radius:999px !important;
 }
 
 /* Read — filled pink */

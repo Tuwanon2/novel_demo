@@ -208,7 +208,11 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 24px;
-    auto-rows: auto;
+    align-items: stretch;
+}
+
+.home__novel-grid > * {
+    height: 100%;
 }
 
 /* Loading and empty state */
