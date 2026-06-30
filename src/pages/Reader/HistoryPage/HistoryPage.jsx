@@ -2,12 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import GenreTag from "../../../components/GenreTag/GenreTag";
-import "./BookshelfPage.css";
-import {
-    Eye,
-    Heart,
-    GitBranch
-} from "lucide-react";
+import "./HistoryPage.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
@@ -18,10 +13,6 @@ const FILTER_OPTIONS = [
     { value: "finished", label: "อ่านจบแล้ว" },
 ];
 
-const formatMinioUrl = (url) => {
-    if (!url) return "https://via.placeholder.com/320x420";
-    return url.replace("http://minio:9000", "http://localhost:9000");
-};
 
 const normalizeCategoryName = (value) => {
     if (!value) return "";
@@ -38,54 +29,37 @@ const stripHtml = (html = "") => {
 
 const normalizeBook = (item) => ({
     id:
-        item.novel_id ||
         item.id ||
+        item.novel_id ||
         item._id ||
         item.novel?.id,
 
     title:
         item.title ||
         item.novel?.title ||
-        "ไม่มีชื่อเรื่อง",
+        "ไม่ระบุชื่อเรื่อง",
 
     author:
         item.author_name ||
-        item.pen_name ||
         item.author?.name ||
         item.novel?.author_name ||
         "ไม่ทราบผู้แต่ง",
 
-    categories: (() => {
-        const cats =
-            item.categories ??
-            item.Categories ??
-            item.CategoryIDs ??
-            item.category_ids ??
-            [];
+    categories: Array.isArray(item.categories)
+        ? item.categories.map(normalizeCategoryName)
+        : ["ทั่วไป"],
 
-        if (!Array.isArray(cats) || cats.length === 0)
-            return ["ทั่วไป"];
-
-        return cats
-            .map((cat) => {
-                if (!cat) return null;
-                if (typeof cat === "string") return cat;
-                if (typeof cat === "number") return String(cat);
-                return (
-                    cat.name ||
-                    cat.Name ||
-                    cat.title ||
-                    cat.label ||
-                    cat.label_th
-                );
-            })
-            .filter(Boolean);
-    })(),
-
-    coverImage: formatMinioUrl(
+    coverImage:
         item.cover_image ||
         item.coverImage ||
-        item.novel?.cover_image
+        item.novel?.cover_image ||
+        "https://via.placeholder.com/320x420",
+
+    synopsis: stripHtml(
+        item.synopsis ||
+        item.description ||
+        item.introduction ||
+        ""
     ),
 
     reading_status:
@@ -93,31 +67,14 @@ const normalizeBook = (item) => ({
         item.status ||
         "want_to_read",
 
-    latestChapter:
-        item.latest_chapter ||
-        item.latestChapter ||
-        item.last_chapter ||
-        item.chapter_title ||
-        "ยังไม่มีตอน",
-
-    // ---------- Statistics ----------
+    routeFound:
+        item.routeFound ||
+        item.discoveredRoutes ||
+        0,
 
     totalRoutes:
-        item.paths_count ||
-        item.total_paths ||
         item.totalRoutes ||
-        item.route_count ||
-        0,
-
-    views:
-        item.views ||
-        item.view_count ||
-        0,
-
-    likes:
-        item.like_count ||
-        item.likeCount ||
-        item.likes ||
+        item.total_paths ||
         0,
 });
 
@@ -128,7 +85,7 @@ const statusLabels = {
     finished: "อ่านจบแล้ว",
 };
 
-const BookshelfPage = () => {
+const HistoryPage = () => {
     const navigate = useNavigate();
     const [filter, setFilter] = useState("all");
     const [books, setBooks] = useState([]);
@@ -148,7 +105,7 @@ const BookshelfPage = () => {
     useEffect(() => {
         let active = true;
 
-        const loadBookshelf = async () => {
+        const loadhistory = async () => {
             setLoading(true);
             try {
                 const token = localStorage.getItem("token");
@@ -156,11 +113,11 @@ const BookshelfPage = () => {
                 const headers = { "Content-Type": "application/json" };
                 if (token) headers.Authorization = `Bearer ${token}`;
 
-                const bookshelfUrl = `${API_BASE_URL}/bookshelf${userId ? `?user_id=${userId}` : ""}`;
-                const shelfRes = await axios.get(bookshelfUrl, { headers });
+                const historyUrl = `${API_BASE_URL}/history${userId ? `?user_id=${userId}` : ""}`;
+                const shelfRes = await axios.get(historyUrl, { headers });
                 const shelfPayload =
-                    shelfRes.data?.data?.bookshelf ||
-                    shelfRes.data?.bookshelf ||
+                    shelfRes.data?.data?.history ||
+                    shelfRes.data?.history ||
                     shelfRes.data?.novels ||
                     shelfRes.data ||
                     [];
@@ -185,14 +142,14 @@ const BookshelfPage = () => {
                 }
             } catch {
                 if (active) {
-                    setBooks(BOOKSHELF_MOCK_DATA.map(normalizeBook));
+                    setBooks(history_MOCK_DATA.map(normalizeBook));
                 }
             } finally {
                 if (active) setLoading(false);
             }
         };
 
-        loadBookshelf();
+        loadhistory();
         return () => {
             active = false;
         };
@@ -204,18 +161,19 @@ const BookshelfPage = () => {
     }, [books, filter]);
 
     return (
-        <div className="bookshelf-page">
-            <div className="bookshelf-page__container">
-                <header className="bookshelf-page__header">
+        <div className="history-page">
+            <div className="history-page__container">
+                <header className="history-page__header">
                     <div>
-                        <p className="bookshelf-page__eyebrow">ชั้นหนังสือของฉัน</p>
-                        <h1 className="bookshelf-page__title">นิยายที่บันทึกไว้</h1>
+                        <p className="history-page__eyebrow">ประวัติการอ่านของฉัน</p>
+                        <h1 className="history-page__title">นิยายที่คุณเคยอ่าน</h1>
+                        <p className="history-page__eyebrows">ติดตามความคืบหน้าและเส้นทางการอ่านของคุณ</p>
                     </div>
 
-                    <div className="bookshelf-page__filter">
-                        <label htmlFor="bookshelf-filter">กรองสถานะ</label>
+                    <div className="history-page__filter">
+                        <label htmlFor="history-filter">กรองสถานะ</label>
                         <select
-                            id="bookshelf-filter"
+                            id="history-filter"
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
                         >
@@ -229,28 +187,28 @@ const BookshelfPage = () => {
                 </header>
 
                 {loading ? (
-                    <div className="bookshelf-page__loading">กำลังโหลดชั้นหนังสือ...</div>
+                    <div className="history-page__loading">กำลังโหลดประวัติการอ่าน...</div>
                 ) : (
                     <>
-                        <div className="bookshelf-page__summary">
+                        <div className="history-page__summary">
                             <span>{filteredBooks.length} เรื่อง</span>
                             {filter !== "all" && (
-                                <span className="bookshelf-page__summary-tag">
+                                <span className="history-page__summary-tag">
                                     {statusLabels[filter]}
                                 </span>
                             )}
                         </div>
 
-                        <div className="bookshelf-page__grid">
+                        <div className="history-page__grid">
                             {filteredBooks.length === 0 ? (
-                                <div className="bookshelf-page__empty">
-                                    ไม่มีนิยายในสถานะนี้ ขยับไปลองสถานะอื่นได้
+                                <div className="history-page__empty">
+                                    ไม่มีนิยายในสถานะนี้
                                 </div>
                             ) : (
                                 filteredBooks.map((book) => (
                                     <article
                                         key={book.id}
-                                        className="bookshelf-card"
+                                        className="history-card"
                                         onClick={() => navigate(`/novel/${book.id}`)}
                                         onKeyDown={(e) => {
                                             if (e.key === "Enter") navigate(`/novel/${book.id}`);
@@ -258,12 +216,23 @@ const BookshelfPage = () => {
                                         tabIndex={0}
                                         role="button"
                                     >
-                                        <div className="bookshelf-card__cover">
+                                        <div className="history-card__cover">
                                             <img src={book.coverImage} alt={`${book.title} ปกนิยาย`} />
                                         </div>
-                                        <div className="bookshelf-card__body">
-                                            <div className="bookshelf-card__tags history-card__tags--small">
-                                                {book.categories.slice(0, 2).map((category) => (
+                                        <div className="history-card__body">
+                                            <h2 className="history-card__title">{book.title}</h2>
+
+                                            <p className="history-card__author">
+                                                <span className="history-card__author-label">โดย </span>
+                                                <span className="history-card__author-name">{book.author}</span>
+                                            </p>
+
+                                            <p className="history-card__description">
+                                                {book.synopsis}
+                                            </p>
+
+                                            <div className="history-card__tags history-card__tags--small">
+                                                {book.categories.slice(0, 3).map((category) => (
                                                     <GenreTag
                                                         key={`${book.id}-${category}`}
                                                         label={category}
@@ -271,45 +240,63 @@ const BookshelfPage = () => {
                                                     />
                                                 ))}
                                             </div>
+                                            <div className="history-card__progress">
 
-                                            <h2 className="bookshelf-card__title">{book.title}</h2>
-                                            <p className="bookshelf-card__author">{book.author}</p>
-                                            <p className="bookshelf-card__latest">
-                                                📖 ตอนล่าสุด : {book.latestChapter}
-                                            </p>
+                                                <div className="history-card__progress-top">
 
-                                            <div className="bookshelf-card__stats">
+                                                    <div className="history-card__progress-info">
 
-                                                <div className="bookshelf-card__stat">
-                                                    <GitBranch size={17} color="#F526A2"/>
-                                                    <span>{book.totalRoutes}</span>
+                                                        📖
+                                                        <span>เส้นทางที่ผ่านแล้ว</span>
+
+                                                        <span className="history-card__progress-current">
+                                                            {book.routeFound}
+                                                        </span>
+
+                                                        <span>/ {book.totalRoutes}</span>
+
+                                                    </div>
+
+                                                    <span className="history-card__progress-percent">
+                                                        {book.totalRoutes
+                                                            ? Math.round(book.routeFound / book.totalRoutes * 100)
+                                                            : 0}%
+                                                    </span>
+
                                                 </div>
 
-                                                <div className="bookshelf-card__stat">
-                                                    <Eye size={17} color="#F526A2"/>
-                                                    <span>{book.views}</span>
+                                                <div className="history-card__progress-bar">
+
+                                                    <div
+                                                        className="history-card__progress-fill"
+                                                        style={{
+                                                            width: `${book.totalRoutes
+                                                                    ? (book.routeFound / book.totalRoutes) * 100
+                                                                    : 0
+                                                                }%`
+                                                        }}
+                                                    />
+
                                                 </div>
 
-                                                <div className="bookshelf-card__stat">
-                                                    <Heart size={17} color="#F526A2"/>
-                                                    <span>{book.likes}</span>
-                                                </div>
+                                            </div>
+
+
+                                            <span
+                                                className={`history-card__status history-card__status--${book.reading_status}`}
+                                            >
+                                                {statusLabels[book.reading_status]}
+                                            </span>
                                         </div>
-
-
-                                        <span className={`bookshelf-card__status bookshelf-card__status--${book.reading_status}`}>
-                                            {statusLabels[book.reading_status] || "ไม่ระบุสถานะ"}
-                                        </span>
-                                    </div>
                                     </article>
-                        ))
+                                ))
                             )}
-                    </div>
-            </>
+                        </div>
+                    </>
                 )}
+            </div>
         </div>
-        </div >
     );
 };
 
-export default BookshelfPage;
+export default HistoryPage;
