@@ -175,6 +175,19 @@ func RegisterRoutes(
 		http.NotFound(w, r)
 	})))
 	mux.Handle("/follows", middleware.RequestLogger(middleware.RequireAuth(handlers.AddFollowHandler(social))))
+	mux.Handle("/api/users/following-writers", middleware.RequestLogger(middleware.RequireAuth(handlers.GetFollowingWritersHandler(social))))
+	mux.Handle("/api/me/following-writers", middleware.RequestLogger(middleware.RequireAuth(handlers.GetFollowingWritersHandler(social))))
+	mux.Handle("/api/writers/", middleware.RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/follow") {
+			middleware.RequireAuth(handlers.FollowWriterHandler(social)).ServeHTTP(w, r)
+			return
+		}
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/unfollow") {
+			middleware.RequireAuth(handlers.UnfollowWriterHandler(social)).ServeHTTP(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	})))
 
 	mux.Handle("/writer/", middleware.RequestLogger(http.HandlerFunc(writerSubRouter(writer, social))))
 	mux.Handle("/upload/image", middleware.RequestLogger(middleware.RequireAuth(handlers.UploadImageHandler(media, novel))))

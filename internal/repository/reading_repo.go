@@ -120,6 +120,21 @@ func (r *postgresReadingRepository) InsertUserEnding(userID, novelID, sceneID in
 
 func (r *postgresReadingRepository) GetReadingHistory(userID int) ([]models.Novel, error) {
 	rows, err := r.db.Query(`
+		WITH last_scene_per_novel AS (
+			SELECT ush.user_id, ush.scene_id, ush.visited_at,
+				ROW_NUMBER() OVER (PARTITION BY s.novel_id ORDER BY ush.visited_at DESC) AS rn
+			FROM user_scene_history ush
+			JOIN scenes s ON s.scene_id = ush.scene_id
+			WHERE ush.user_id = $1
+		),
+		last_choice_per_novel AS (
+			SELECT uch.user_id, c.label, uch.selected_at,
+				ROW_NUMBER() OVER (PARTITION BY s.novel_id ORDER BY uch.selected_at DESC) AS rn
+			FROM user_choice_history uch
+			JOIN choices c ON c.choice_id = uch.choice_id
+			JOIN scenes s ON c.to_scene_id = s.scene_id
+			WHERE uch.user_id = $1
+		)
 		SELECT n.novel_id, n.title, n.captions, n.introduction, n.cover_image,
 			CASE
 				WHEN n.is_completed AND n.is_published THEN 'completed-published'
@@ -143,9 +158,14 @@ func (r *postgresReadingRepository) GetReadingHistory(userID int) ([]models.Nove
 		       COALESCE(visited_stats.visited_count, 0) AS visited_count,
 		       COALESCE(ue.ending_count, 0) AS ending_count,
 		       CASE WHEN COALESCE(ue.ending_count, 0) > 0 THEN 'finished' WHEN COALESCE(rp.current_scene_id, 0) > 0 THEN 'reading' ELSE 'want_to_read' END AS reading_status,
-		       last_read.last_read_at AS last_read_at,
-		       COALESCE(last_read.last_read_scene_id, 0) AS last_read_scene_id,
-		       COALESCE(last_read.title, '') AS last_read_scene_title,
+		       COALESCE(last_read.visited_at, NULL) AS last_read_at,
+		       COALESCE(last_read.scene_id, 0) AS last_read_scene_id,
+		       COALESCE(last_read.scene_title, '') AS last_read_scene_title,
+		       COALESCE(last_read.chapter_number, 0) AS last_read_chapter_number,
+		       COALESCE(last_read.chapter_title, '') AS last_read_chapter_title,
+		       COALESCE(last_read.scene_number, 0) AS last_read_scene_number,
+		       COALESCE(last_read.scene_name, '') AS last_read_scene_name,
+		       COALESCE(last_choice.choice_text, '') AS last_choice_text,
 		       COALESCE((SELECT COUNT(*) FROM scenes s2 WHERE s2.novel_id = n.novel_id), 0) AS total_scenes
 		FROM reading_progress rp
 		JOIN novels n ON n.novel_id = rp.novel_id
@@ -160,13 +180,24 @@ func (r *postgresReadingRepository) GetReadingHistory(userID int) ([]models.Nove
 			GROUP BY ush.user_id, s.novel_id
 		) visited_stats ON visited_stats.user_id = rp.user_id AND visited_stats.novel_id = n.novel_id
 		LEFT JOIN LATERAL (
-			SELECT ush.scene_id AS last_read_scene_id, ush.visited_at AS last_read_at, s.title
-			FROM user_scene_history ush
-			JOIN scenes s ON s.scene_id = ush.scene_id
-			WHERE ush.user_id = rp.user_id AND s.novel_id = n.novel_id
-			ORDER BY ush.visited_at DESC
+			SELECT lsp.scene_id, lsp.visited_at, 
+				s.title AS scene_title,
+				ch.episode AS chapter_number,
+				ch.title AS chapter_title,
+				ROW_NUMBER() OVER (PARTITION BY s.chapter_id ORDER BY s.scene_id) AS scene_number,
+				s.title AS scene_name
+			FROM last_scene_per_novel lsp
+			JOIN scenes s ON s.scene_id = lsp.scene_id
+			JOIN chapters ch ON ch.chapter_id = s.chapter_id
+			WHERE lsp.user_id = rp.user_id AND s.novel_id = n.novel_id AND lsp.rn = 1
 			LIMIT 1
 		) last_read ON true
+		LEFT JOIN LATERAL (
+			SELECT lcp.label AS choice_text
+			FROM last_choice_per_novel lcp
+			WHERE lcp.user_id = rp.user_id AND lcp.rn = 1
+			LIMIT 1
+		) last_choice ON true
 		LEFT JOIN (
 			SELECT ue.user_id, s.novel_id, COUNT(*) AS ending_count
 			FROM user_endings ue
@@ -175,7 +206,7 @@ func (r *postgresReadingRepository) GetReadingHistory(userID int) ([]models.Nove
 			GROUP BY ue.user_id, s.novel_id
 		) ue ON ue.user_id = rp.user_id AND ue.novel_id = n.novel_id
 		WHERE rp.user_id = $1
-		GROUP BY n.novel_id, w.writer_id, rp.current_scene_id, rp.updated_at, visited_stats.visited_count, ue.ending_count, last_read.last_read_at, last_read.last_read_scene_id, last_read.title
+		GROUP BY n.novel_id, w.writer_id, rp.current_scene_id, rp.updated_at, visited_stats.visited_count, ue.ending_count, last_read.visited_at, last_read.scene_id, last_read.scene_title, last_read.chapter_number, last_read.chapter_title, last_read.scene_number, last_read.scene_name, last_choice.choice_text
 		ORDER BY rp.updated_at DESC
 	`, userID)
 	if err != nil {
@@ -190,14 +221,18 @@ func (r *postgresReadingRepository) GetReadingHistory(userID int) ([]models.Nove
 		var categoriesJSON []byte
 		var currentSceneID int
 		var visitedCount, endingCount, totalScenes int
-		var lastReadSceneTitle string
+		var lastReadSceneID int
+		var lastReadSceneTitle, lastReadChapterTitle, lastReadSceneName, lastChoiceText string
+		var lastReadChapterNumber, lastReadSceneNumber int
 		var readingStatus string
+		var lastReadAt sql.NullTime
+
 		if err := rows.Scan(&n.ID, &n.Title, &n.Captions, &n.Introduction, &n.CoverImage, &n.Status, &n.IsPublished, &n.IsCompleted,
 			&n.AuthorID, &n.Views, &n.CreatedAt, &n.UpdatedAt,
 			&n.ChapterCount, &n.SceneCount,
 			&authorName, &penName,
 			&n.LikeCount, &n.BookshelfCount, &categoriesJSON,
-			&currentSceneID, &visitedCount, &endingCount, &readingStatus, &n.LastReadAt, &n.LastReadSceneID, &lastReadSceneTitle, &totalScenes); err != nil {
+			&currentSceneID, &visitedCount, &endingCount, &readingStatus, &lastReadAt, &lastReadSceneID, &lastReadSceneTitle, &lastReadChapterNumber, &lastReadChapterTitle, &lastReadSceneNumber, &lastReadSceneName, &lastChoiceText, &totalScenes); err != nil {
 			return nil, err
 		}
 		if authorName != nil {
@@ -218,7 +253,16 @@ func (r *postgresReadingRepository) GetReadingHistory(userID int) ([]models.Nove
 		n.VisitedCount = visitedCount
 		n.EndingCount = endingCount
 		n.ReadingStatus = readingStatus
+		if lastReadAt.Valid {
+			n.LastReadAt = lastReadAt.Time
+		}
+		n.LastReadSceneID = lastReadSceneID
 		n.LastReadSceneTitle = lastReadSceneTitle
+		n.LastReadChapterNumber = lastReadChapterNumber
+		n.LastReadChapterTitle = lastReadChapterTitle
+		n.LastReadSceneNumber = lastReadSceneNumber
+		n.LastReadSceneName = lastReadSceneName
+		n.LastChoiceText = lastChoiceText
 		n.TotalScenes = totalScenes
 		novels = append(novels, n)
 	}

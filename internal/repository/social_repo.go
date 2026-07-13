@@ -199,12 +199,134 @@ func RemoveComment(db *sql.DB, commentID, userID int) error {
 }
 
 func AddFollow(db *sql.DB, follow models.Follow) error {
-	_, err := db.Exec(`
-        INSERT INTO follows (follower_id, following_id)
-        VALUES ($1, $2)
-        ON CONFLICT (follower_id, following_id) DO NOTHING
-    `, follow.FollowerID, follow.FollowingID)
+	// Normalize following ID: incoming value might be a writers.writer_id or a users.user_id
+	var resolvedWriterID int
+	err := db.QueryRow(`
+		SELECT writer_id FROM writers WHERE writer_id = $1 OR user_id = $1 LIMIT 1
+	`, follow.FollowingID).Scan(&resolvedWriterID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO follows (follower_id, following_id)
+		VALUES ($1, $2)
+		ON CONFLICT (follower_id, following_id) DO NOTHING
+	`, follow.FollowerID, resolvedWriterID)
 	return err
+}
+
+func RemoveFollow(db *sql.DB, userID, writerID int) error {
+	// Resolve writerID if caller passed a user_id
+	var resolvedWriterID int
+	err := db.QueryRow(`
+		SELECT writer_id FROM writers WHERE writer_id = $1 OR user_id = $1 LIMIT 1
+	`, writerID).Scan(&resolvedWriterID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// nothing to delete
+			return nil
+		}
+		return err
+	}
+
+	_, err = db.Exec(`
+		DELETE FROM follows
+		WHERE follower_id = $1 AND following_id = $2
+	`, userID, resolvedWriterID)
+	return err
+}
+
+func GetFollowingWriters(db *sql.DB, userID int) ([]models.Writer, error) {
+	rows, err := db.Query(`
+        SELECT w.writer_id,
+               w.user_id,
+               w.name_lastname,
+               w.pen_name,
+               w.bio,
+               w.email_writer,
+               w.contact_info,
+               w.avatar_url,
+               w.status,
+               COALESCE((SELECT COUNT(*) FROM follows f2 WHERE f2.following_id = w.writer_id), 0) AS follower_count,
+               COALESCE((SELECT COUNT(*) FROM novels n WHERE n.author_id = w.writer_id AND n.is_published = TRUE), 0) AS novel_count,
+               COALESCE(json_agg(json_build_object(
+                   'id', n.novel_id,
+                   'title', n.title,
+                   'status', CASE
+                       WHEN n.is_completed AND n.is_published THEN 'finished'
+                       WHEN n.is_published THEN 'ongoing'
+                       ELSE 'draft'
+                   END,
+                   'cover', n.cover_image,
+                   'chapter_count', (SELECT COUNT(*) FROM chapters ch WHERE ch.novel_id = n.novel_id)
+               )) FILTER (WHERE n.novel_id IS NOT NULL), '[]') AS novels_json,
+               (SELECT json_build_object(
+                   'title', n2.title,
+                   'detail', CONCAT('เพิ่มตอนที่ ', COALESCE((SELECT COUNT(*) FROM chapters ch WHERE ch.novel_id = n2.novel_id), 0)),
+                   'time', to_char(n2.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+               )
+                FROM novels n2
+                WHERE n2.author_id = w.writer_id AND n2.is_published = TRUE
+                ORDER BY n2.updated_at DESC
+                LIMIT 1
+               ) AS latest_update_json
+        FROM follows f
+        JOIN writers w ON w.writer_id = f.following_id
+        LEFT JOIN novels n ON n.author_id = w.writer_id AND n.is_published = TRUE
+        WHERE f.follower_id = $1 AND w.status = 'approved'
+        GROUP BY w.writer_id, w.user_id, w.name_lastname, w.pen_name, w.bio, w.email_writer, w.contact_info, w.avatar_url, w.status
+        ORDER BY w.pen_name ASC
+    `, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	writers := []models.Writer{}
+	for rows.Next() {
+		var writer models.Writer
+		var bio, emailWriter, contactInfo, avatarURL, status sql.NullString
+		var followerCount, novelCount int
+		var novelsJSON, latestUpdateJSON []byte
+		if err := rows.Scan(&writer.WriterID, &writer.UserID, &writer.NameLastname, &writer.PenName, &bio, &emailWriter, &contactInfo, &avatarURL, &status, &followerCount, &novelCount, &novelsJSON, &latestUpdateJSON); err != nil {
+			return nil, err
+		}
+		if bio.Valid {
+			writer.Bio = &bio.String
+		}
+		if emailWriter.Valid {
+			writer.EmailWriter = &emailWriter.String
+		}
+		if contactInfo.Valid {
+			writer.ContactInfo = contactInfo.String
+		}
+		if avatarURL.Valid {
+			writer.AvatarURL = avatarURL.String
+		}
+		if status.Valid {
+			writer.Status = status.String
+		}
+		writer.FollowerCount = followerCount
+		writer.NovelCount = novelCount
+		if len(novelsJSON) > 0 {
+			if err := json.Unmarshal(novelsJSON, &writer.Novels); err != nil {
+				return nil, err
+			}
+		}
+		if len(latestUpdateJSON) > 0 && string(latestUpdateJSON) != "null" {
+			var latest models.LatestUpdate
+			if err := json.Unmarshal(latestUpdateJSON, &latest); err != nil {
+				return nil, err
+			}
+			writer.LatestUpdate = &latest
+		}
+		writers = append(writers, writer)
+	}
+	return writers, nil
 }
 
 func GetCommentsByNovelID(db *sql.DB, novelID int) ([]models.Comment, error) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"novel-be/internal/middleware"
 	"novel-be/internal/models"
@@ -127,6 +128,26 @@ func GetNovelDetailHandler(novelService service.NovelService, sceneService servi
 			"unlocked_endings":   unlockedEndings,   // ฉากจบที่ปลด
 			"total_endings":      totalEndings,      // ฉากจบทั้งหมด
 			"endings":            endings,
+		}
+
+		// ถ้ามี user_id ให้ตรวจว่าผู้ใช้คนนี้ติดตามนักเขียนของนิยายเรื่องนี้หรือไม่
+		if userID > 0 {
+			// novel might be *models.Novel
+			if novelModel, ok := novel.(*models.Novel); ok {
+				following := false
+				writers, err := socialService.GetFollowingWriters(userID)
+				if err == nil {
+					for _, w := range writers {
+						if w.WriterID == novelModel.AuthorID {
+							following = true
+							break
+						}
+					}
+				}
+				finalDetailResponse["is_following"] = following
+				// Log for debugging follow state
+				log.Printf("GetNovelDetailHandler: user=%d author=%d is_following=%v", userID, novelModel.AuthorID, following)
+			}
 		}
 		RespondWithJSON(w, http.StatusOK, finalDetailResponse)
 	}

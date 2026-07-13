@@ -58,6 +58,8 @@ type SocialRepository interface {
 	AddComment(models.Comment) (int, error)
 	RemoveComment(commentID, userID int) error
 	AddFollow(models.Follow) error
+	RemoveFollow(userID, writerID int) error
+	GetFollowingWriters(userID int) ([]models.Writer, error)
 	GetCommentsByNovelID(novelID int) ([]models.Comment, error)
 	GetCommentsBySceneID(sceneID int) ([]models.Comment, error)
 }

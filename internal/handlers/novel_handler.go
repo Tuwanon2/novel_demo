@@ -224,14 +224,6 @@ func UpdateNovelHandler(novelService service.NovelService, sceneService service.
 			IsCompleted:  isCompleted,
 		}
 
-		// Validate story structure before publishing
-		if isPublished && !novelPtr.IsPublished {
-			if err := sceneService.ValidateStoryForPublish(novelID); err != nil {
-				WriteError(w, http.StatusBadRequest, err.Error())
-				return
-			}
-		}
-
 		if err := novelService.UpdateNovel(updatedNovel); err != nil {
 			WriteError(w, http.StatusInternalServerError, err.Error())
 			return

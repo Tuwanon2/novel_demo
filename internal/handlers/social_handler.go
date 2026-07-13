@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"novel-be/internal/middleware"
 	"novel-be/internal/models"
@@ -320,11 +322,96 @@ func AddFollowHandler(socialService service.SocialService) http.HandlerFunc {
 			return
 		}
 
+		log.Printf("AddFollowHandler: received follow request follower=%d following=%d", req.FollowerID, req.FollowingID)
 		if err := socialService.AddFollow(models.Follow{FollowerID: req.FollowerID, FollowingID: req.FollowingID}); err != nil {
 			WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		WriteJSON(w, http.StatusCreated, map[string]string{"message": "follow recorded"})
+	}
+}
+
+func FollowWriterHandler(socialService service.SocialService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		writerIDStr := strings.TrimPrefix(r.URL.Path, "/api/writers/")
+		writerIDStr = strings.TrimSuffix(writerIDStr, "/follow")
+		writerID, err := strconv.Atoi(writerIDStr)
+		if err != nil || writerID == 0 {
+			WriteError(w, http.StatusBadRequest, "invalid writer_id")
+			return
+		}
+
+		log.Printf("FollowWriterHandler: user=%d follows writer=%d", userID, writerID)
+		if err := socialService.AddFollow(models.Follow{FollowerID: int(userID), FollowingID: writerID}); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusCreated, map[string]any{"message": "follow recorded", "writer_id": writerID})
+	}
+}
+
+func UnfollowWriterHandler(socialService service.SocialService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		writerIDStr := strings.TrimPrefix(r.URL.Path, "/api/writers/")
+		writerIDStr = strings.TrimSuffix(writerIDStr, "/unfollow")
+		writerID, err := strconv.Atoi(writerIDStr)
+		if err != nil || writerID == 0 {
+			WriteError(w, http.StatusBadRequest, "invalid writer_id")
+			return
+		}
+
+		if err := socialService.RemoveFollow(int(userID), writerID); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, map[string]any{"message": "follow removed", "writer_id": writerID})
+	}
+}
+
+func GetFollowingWritersHandler(socialService service.SocialService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		writers, err := socialService.GetFollowingWriters(int(userID))
+		if err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, writers)
 	}
 }

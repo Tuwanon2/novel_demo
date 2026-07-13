@@ -193,6 +193,14 @@ func (r *postgresSocialRepository) AddFollow(follow models.Follow) error {
 	return AddFollow(r.db, follow)
 }
 
+func (r *postgresSocialRepository) RemoveFollow(userID, writerID int) error {
+	return RemoveFollow(r.db, userID, writerID)
+}
+
+func (r *postgresSocialRepository) GetFollowingWriters(userID int) ([]models.Writer, error) {
+	return GetFollowingWriters(r.db, userID)
+}
+
 func (r *postgresSocialRepository) GetCommentsByNovelID(novelID int) ([]models.Comment, error) {
 	return GetCommentsByNovelID(r.db, novelID)
 }
