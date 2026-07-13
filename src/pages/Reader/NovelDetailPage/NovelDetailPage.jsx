@@ -5,6 +5,7 @@ import "./NovelDetailPage.css";
 import NovelCoverCard from "../../../components/NovelCoverCard/NovelCoverCard";
 import GenreTag from "../../../components/GenreTag/GenreTag";
 import ActionButtons from "../../../components/ActionButtons/ActionButtons";
+import FollowButton from "../../../components/FollowButton/FollowButton";
 import ProgressBar from "../../../components/ProgressBar/ProgressBar";
 import EndingCollection from "../../../components/EndingCollection/EndingCollection";
 import Comments from "../../../components/Comments/Comments";
@@ -58,11 +59,12 @@ const NovelDetailPage = () => {
   const [endings, setEndings] = useState([]);
   const [showEndingModal, setShowEndingModal] = useState(false);
   const [nextSceneId, setNextSceneId] = useState(null);
-  const [showNoContentDialog, setShowNoContentDialog] = useState(false); // 🔥 State สำหรับเปิด/ปิดกล่องแจ้งเตือนเมื่อไม่มีเนื้อหา
+  const [showNoContentDialog, setShowNoContentDialog] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [restartLoading, setRestartLoading] = useState(false);
   const [restartError, setRestartError] = useState(null);
   const [bookmarkProcessing, setBookmarkProcessing] = useState(false);
+  const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
 
   const getCurrentUserId = () => {
     const userJson = localStorage.getItem("user");
@@ -207,6 +209,10 @@ const NovelDetailPage = () => {
           author: {
             displayName: nData.author_name || nData.pen_name || "ไม่ทราบผู้แต่ง",
             avatarUrl: formatMinioUrl(nData.author_avatar) || null,
+            // Prefer explicit writer_id when API provides it; fall back to author_id/user_id
+            writer_id: nData.author_writer_id || nData.author_writerId || nData.author_id || nData.user_id || null,
+            user_id: nData.user_id || nData.author_id || null,
+            id: nData.author_id || nData.user_id || null,
           },
           synopsis: nData.captions || nData.introduction || "ไม่มีเรื่องย่อ",
           
@@ -230,6 +236,13 @@ const NovelDetailPage = () => {
           isLiked: nData.is_liked || nData.isLiked || false,
           isBookmarked: isBookmarked,
         });
+        // ตั้งค่าสถานะการติดตามถ้าข้อมูลมี
+        try {
+          const isFollowing = Boolean(data.is_following || data.isFollowing || nData.is_following || nData.isFollowing);
+          setIsFollowingAuthor(isFollowing);
+        } catch (e) {
+          setIsFollowingAuthor(false);
+        }
         setEndings(data.endings || []);
       } catch (err) {
         console.error("Fetch error:", err);
@@ -521,6 +534,17 @@ const NovelDetailPage = () => {
                 )}
               </div>
               <span className="novel-detail__author-name">{novel.author.displayName}</span>
+              
+              {/* ปุ่มติดตามนักเขียน */}
+              {novel.author?.writer_id || novel.author?.id ? (
+                <FollowButton
+                  writerId={novel.author.writer_id || novel.author.id || novel.author.user_id}
+                  writerName={novel.author.displayName}
+                  isFollowing={isFollowingAuthor}
+                  onFollowChange={setIsFollowingAuthor}
+                  size="small"
+                />
+              ) : null}
             </div>
 
             <p className="novel-detail__synopsis">{novel.synopsis}</p>

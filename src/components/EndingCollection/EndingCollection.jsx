@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import "./EndingCollection.css";
 
 const endingTypeMeta = {
-  good: { label: "True Ending", color: "#C8960C", icon: "👑", bg: "#FEF8E0", glow: "#F5C842" },
+  good: { label: "Good Ending", color: "#4B5563", icon: "❓", bg: "#F3F4F6", glow: "#9CA3AF" },
   bad: { label: "Bad Ending", color: "#9B2020", icon: "💀", bg: "#FDECEA", glow: "#E05C5C" },
   secret: { label: "Secret Ending", color: "#6D28D9", icon: "🌙", bg: "#EDE9FE", glow: "#8B5CF6" },
-  good: { label: "Good Ending", color: "#4B5563", icon: "❓", bg: "#F3F4F6", glow: "#9CA3AF" },
+  true: { label: "True Ending", color: "#C8960C", icon: "👑", bg: "#FEF8E0", glow: "#F5C842" },
+  unknown: { label: "Ending", color: "#6B7280", icon: "📖", bg: "#F3F4F6", glow: "#D1D5DB" },
 };
 
 const filterOptions = [
@@ -20,9 +21,10 @@ const EndingCollection = ({ isOpen, endings, onClose, onViewStoryMap }) => {
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(null);
 
-  const unlockedEndings = endings.filter((item) => item.is_unlocked);
+  const endingsList = Array.isArray(endings) ? endings : [];
+  const unlockedEndings = endingsList.filter((item) => item?.is_unlocked);
   const visibleEndings = unlockedEndings.filter((item) =>
-    filter === "all" ? true : (item.ending_type || item.type) === filter
+    filter === "all" ? true : (item?.ending_type || item?.type) === filter
   );
 
   useEffect(() => {

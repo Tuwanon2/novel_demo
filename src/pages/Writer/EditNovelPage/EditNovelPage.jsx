@@ -87,7 +87,6 @@ const EditNovelPage = ({ onNavigate }) => {
     const [submissionError, setSubmissionError] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [canPublish, setCanPublish] = useState(true);
     const [categories, setCategories] = useState([]);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
     const [categoriesLoaded, setCategoriesLoaded] = useState(false);
@@ -208,15 +207,6 @@ const EditNovelPage = ({ onNavigate }) => {
                         isCompleted,
                     });
                     setOriginalStatus(getStatusFromFlags({ isCompleted, isPublished }));
-                    // Check publish readiness once we have the novel loaded
-                    (async () => {
-                        const check = await checkPublishable(novelData.novel_id || novelData.novelId || novelData.id || idCandidate);
-                        setCanPublish(check.ok);
-                        if (!check.ok) {
-                            // don't surface as fatal error; show hint near toggle instead
-                            console.debug("EditNovelPage: publish check failed", check.message);
-                        }
-                    })();
                     lastErr = null;
                     break; // success
                 } catch (err) {
@@ -360,12 +350,24 @@ const EditNovelPage = ({ onNavigate }) => {
 
             // Verify persisted values by re-fetching the novel before navigating
             try {
-                const verifyRes = await fetch(`${API_BASE_URL}/novels/${novelId}`);
+                const verifyRes = await fetch(`${API_BASE_URL}/novels/${novelId}`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
                 if (verifyRes.ok) {
                     const verifyData = await verifyRes.json().catch(() => null);
-                    const novelFresh = verifyData?.data || verifyData?.novel || verifyData || {};
-                    const freshPublished = Boolean(novelFresh.is_published || novelFresh.isPublished);
-                    const freshCompleted = Boolean(novelFresh.is_completed || novelFresh.isCompleted);
+                    const novelFresh = verifyData?.data?.novel || verifyData?.data || verifyData?.novel || verifyData || {};
+                    const freshStatus = getNovelStatusInfo({
+                        status: novelFresh.status || novelFresh.Status,
+                        is_published: novelFresh.is_published,
+                        is_completed: novelFresh.is_completed,
+                        isPublished: novelFresh.isPublished,
+                        isCompleted: novelFresh.isCompleted,
+                    });
+                    const freshPublished = freshStatus.isPublished;
+                    const freshCompleted = freshStatus.isCompleted;
                     const freshTitle = novelFresh.title || "";
                     if (freshPublished !== form.isPublished || freshCompleted !== form.isCompleted || freshTitle !== form.title) {
                         const msg = "อัพเดทสำเร็จแต่ค่าที่กลับมาไม่ตรงกับที่คาดไว้ (ยังไม่ได้บันทึก)";
@@ -387,40 +389,7 @@ const EditNovelPage = ({ onNavigate }) => {
         }
     };
 
-    const checkPublishable = async (id) => {
-        try {
-            const headers = {};
-            const token = localStorage.getItem("token");
-            if (token) headers["Authorization"] = `Bearer ${token}`;
-            const res = await fetch(`${API_BASE_URL}/novels/${id}/start`, { headers });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                return { ok: false, message: err.message || "เรื่องนี้ยังไม่พร้อมเผยแพร่ (ไม่มีฉากเริ่มต้นหรือยังไม่มีทางเลือก)" };
-            }
-            const data = await res.json().catch(() => null);
-            // Expect choices array on the start scene
-            const choices = data?.data?.choices || data?.choices || [];
-            if (!choices || choices.length < 1) {
-                return { ok: false, message: "Start scene ต้องมีอย่างน้อยหนึ่งทางเลือกก่อนเผยแพร่" };
-            }
-            return { ok: true };
-        } catch (err) {
-            return { ok: false, message: err.message || "ไม่สามารถตรวจสอบสถานะการเผยแพร่ได้" };
-        }
-    };
-
-    const handleTogglePublish = async (nextPublished) => {
-        // If enabling publish, verify story readiness first
-        if (nextPublished && !form.isPublished) {
-            setSubmissionError(null);
-            setIsSubmitting(true);
-            const check = await checkPublishable(novelId);
-            setIsSubmitting(false);
-            if (!check.ok) {
-                setSubmissionError("❌ ไม่สามารถเผยแพร่: " + check.message);
-                return;
-            }
-        }
+    const handleTogglePublish = (nextPublished) => {
         updateFormStatus(form.isCompleted, nextPublished);
     };
 
@@ -563,18 +532,12 @@ const EditNovelPage = ({ onNavigate }) => {
                                             id="toggle-published"
                                             checked={form.isPublished}
                                             onChange={(val) => handleTogglePublish(val)}
-                                            disabled={!canPublish && !form.isPublished}
                                         />
                                         <span className={`cnp__setting-status ${form.isPublished ? "cnp__setting-status--on" : ""}`}>
                                             {form.isPublished ? "เผยแพร่" : "ฉบับร่าง"}
                                         </span>
                                     </div>
                                 </div>
-                                {!canPublish && !form.isPublished && (
-                                    <p className="cnp__hint" style={{ color: "#b45309", marginTop: 6 }}>
-                                        ต้องมีฉากเริ่มต้นและทางเลือกอย่างน้อย 1 ทางก่อนจึงจะเผยแพร่ได้
-                                    </p>
-                                )}
 
                                 <div className="cnp__setting-row">
                                     <span className="cnp__setting-label">สถานะจบ</span>
@@ -589,6 +552,7 @@ const EditNovelPage = ({ onNavigate }) => {
                                         </span>
                                     </div>
                                 </div>
+
                                 <div className="cnp__setting-row" style={{ marginTop: 8 }}>
                                     <span className="cnp__setting-label">สถานะปัจจุบัน</span>
                                     <span className="cnp__setting-status cnp__setting-status--on" style={{ marginLeft: 8 }}>

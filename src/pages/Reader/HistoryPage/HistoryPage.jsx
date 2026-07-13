@@ -62,18 +62,19 @@ const normalizeBook = (item) => ({
   lastReadAt: item.last_read_at || item.updated_at || item.created_at || new Date().toISOString(),
   lastReadSceneTitle:
     item.last_read_scene_title || item.lastReadSceneTitle || item.latestChapter || "ยังไม่ระบุ",
-  // prefer numeric fields when available
-  lastReadChapterNumber: item.last_read_chapter_number || item.chapterNumber || item.chapter_number || item.order_index || null,
-  lastReadSceneNumber: item.last_read_scene_number || item.sceneNumber || item.scene_number || item.scene_index || null,
-  // fallback: try to parse numbers from title text
+  // numeric fields from backend
+  lastReadChapterNumber: item.last_read_chapter_number || null,
+  lastReadSceneNumber: item.last_read_scene_number || null,
+  // textual names from backend
+  lastReadChapterTitle: item.last_read_chapter_title || null,
+  lastReadSceneName: item.last_read_scene_name || null,
+  // previous choice text from backend
+  lastChoiceText: item.last_choice_text || null,
+  // fallback: try to parse numbers from scene title if numeric not available
   lastReadParsed: (() => {
     const t = item.last_read_scene_title || item.lastReadSceneTitle || item.latestChapter || "";
     return extractChapterAndSceneFromTitle(t || "");
   })(),
-  // textual chapter/scene names
-  lastReadChapterTitle: item.last_read_chapter_title || item.chapterTitle || item.chapter_title || item.chapter_name || null,
-  lastReadSceneName: item.last_read_scene_name || item.scene_name || item.sceneTitle || item.scene_title || item.scene_label || item.label || null,
-  lastChoiceText: item.last_choice_text || item.prev_choice_text || item.previous_choice || item.choice_text || item.choiceLabel || item.via_choice || item.viaChoice || null,
   currentSceneId: item.current_scene_id || item.currentSceneId || item.novel?.current_scene_id || 0,
 });
 
@@ -297,11 +298,8 @@ const HistoryPage = ({ onNavigate }) => {
                         </span>
                         <div style={{ fontSize: 12, color: "#6B7280" }}>
                             {(() => {
-                              // กวาดหา "ลำดับตอน" จากทุกชื่อตัวแปรที่เป็นไปได้
-                              const chNum = book.lastReadChapterNumber || book.chapterNumber || book.chapter_number || book.order_index || book.lastReadParsed?.chapter || book.lastReadParsed?.chapterNumber || book.last_read_chapter_number;
-                              
-                              // กวาดหา "ชื่อตอน" จากทุกชื่อตัวแปรที่เป็นไปได้
-                              const chTitle = book.lastReadChapterTitle || book.chapterTitle || book.chapter_title || book.last_read_chapter_title || book.lastReadParsed?.chapterTitle || book.lastReadParsed?.chapter_title;
+                              const chNum = book.lastReadChapterNumber;
+                              const chTitle = book.lastReadChapterTitle;
                               
                               if (chNum && chTitle) return `ตอนที่ ${chNum} : ${chTitle}`;
                               if (chNum) return `ตอนที่ ${chNum}`;
@@ -328,14 +326,11 @@ const HistoryPage = ({ onNavigate }) => {
                         <div style={{ fontSize: 12, marginBottom: 4 }}>ฉากล่าสุด</div>
                         <div style={{ fontWeight: 700, color: "#111827" }}>
                           {(() => {
-                            // กวาดหา "ลำดับฉาก" จากทุกชื่อตัวแปรที่เป็นไปได้
-                            const scNum = book.lastReadSceneNumber || book.sceneNumber || book.scene_number || book.scene_index || book.lastReadParsed?.scene || book.lastReadParsed?.sceneNumber || book.last_read_scene_number;
-                            
-                            // กวาดหา "ชื่อฉาก" จากทุกชื่อตัวแปรที่เป็นไปได้
-                            const scTitle = book.lastReadSceneName || book.lastReadSceneTitle || book.sceneTitle || book.scene_title || book.last_read_scene_name || book.scene_name || book.lastReadParsed?.sceneTitle || book.lastReadParsed?.scene_title || book.label || book.lastReadParsed?.label || book.sceneLabel || book.scene_label;
+                            const scNum = book.lastReadSceneNumber;
+                            const scTitle = book.lastReadSceneName || book.lastReadSceneTitle;
 
                             // เช็กป้องกันไม่ให้ชื่อฉากไปซ้ำกับชื่อเรื่องหลัก
-                            const isNovelTitle = scTitle === book.title || scTitle === book.novelTitle || scTitle === book.novel_title;
+                            const isNovelTitle = scTitle === book.title;
 
                             if (scTitle && scTitle !== "ยังไม่ระบุ" && !isNovelTitle) {
                               return scNum ? `ฉากที่ ${scNum} : ${scTitle}` : scTitle;

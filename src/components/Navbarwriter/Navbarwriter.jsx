@@ -533,6 +533,12 @@ const Navbarwriter = () => {
                                     </Link>
                                 </li>
 
+                                <li className="nav-item">
+                                    <Link to="/following-writers">
+                                        นักเขียนที่ติดตาม
+                                    </Link>
+                                </li>
+
                                 {userData.role === "writer" && (
                                     <li className="nav-item">
                                         <Link to="/writer/dashboard">

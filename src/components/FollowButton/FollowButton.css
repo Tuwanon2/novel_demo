@@ -1,0 +1,133 @@
+/* FollowButton.css */
+
+.follow-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #EC4899;
+  color: white;
+  box-shadow: 0 2px 4px rgba(236, 72, 153, 0.3);
+  white-space: nowrap;
+}
+
+.follow-button:hover:not(:disabled) {
+  background-color: #DB2777;
+  box-shadow: 0 4px 8px rgba(236, 72, 153, 0.4);
+  transform: translateY(-2px);
+}
+
+.follow-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(236, 72, 153, 0.3);
+}
+
+.follow-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────── */
+/* Followed State */
+/* ─────────────────────────────────── */
+.follow-button--followed {
+  background-color: #F3E8FF;
+  color: #7C3AED;
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2);
+}
+
+.follow-button--followed:hover:not(:disabled) {
+  background-color: #EDE9FE;
+  box-shadow: 0 4px 8px rgba(124, 58, 237, 0.25);
+}
+
+/* ─────────────────────────────────── */
+/* Loading State */
+/* ─────────────────────────────────── */
+.follow-button--loading {
+  opacity: 0.8;
+}
+
+/* ─────────────────────────────────── */
+/* Icon */
+/* ─────────────────────────────────── */
+.follow-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────── */
+/* Text */
+/* ─────────────────────────────────── */
+.follow-button__text {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ─────────────────────────────────── */
+/* Size Variants */
+/* ─────────────────────────────────── */
+
+/* Small */
+.follow-button--small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.follow-button--small .follow-button__icon {
+  width: 14px;
+  height: 14px;
+  font-size: 11px;
+}
+
+/* Medium (default) */
+.follow-button--medium {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+/* Large */
+.follow-button--large {
+  padding: 10px 20px;
+  font-size: 15px;
+}
+
+.follow-button--large .follow-button__icon {
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+}
+
+/* ─────────────────────────────────── */
+/* Responsive */
+/* ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .follow-button {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+
+  .follow-button__text {
+    display: none;
+  }
+
+  .follow-button__icon {
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+  }
+}

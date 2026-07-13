@@ -175,6 +175,9 @@ const Navbar = () => {
                             <li className={`nav-item ${location.pathname === "/history" ? "active" : ""}`}>
                                 <Link to="/history">ประวัติการอ่าน</Link>
                             </li>
+                            <li className={`nav-item ${location.pathname === "/following-writers" ? "active" : ""}`}>
+                                <Link to="/following-writers">นักเขียนที่ติดตาม</Link>
+                            </li>
                             <li className={`nav-item ${location.pathname === "/registerwriter" ? "active" : ""}`}>
                                 <Link to="/registerwriter">สมัครนักเขียน</Link>
                             </li>
