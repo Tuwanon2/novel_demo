@@ -177,7 +177,7 @@ export default function FollowingWriters() {
         ) : (
           <div className="listGrid">
             {visible.map(w => (
-              <WriterCard key={w.id} writer={w} onUnfollow={handleUnfollow} />
+              <WriterCard key={w.id} writer={w} onUnfollow={handleUnfollow} isFollowing={true} />
             ))}
           </div>
         )}

@@ -27,7 +27,7 @@ function Avatar({ writer, size = 52 }) {
   );
 }
 
-export default function WriterCard({ writer, onUnfollow, isFollowing = true }) {
+export default function WriterCard({ writer, onUnfollow, isFollowing = false }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [isFollowed, setIsFollowed] = useState(isFollowing);

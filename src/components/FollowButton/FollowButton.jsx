@@ -42,17 +42,22 @@ export default function FollowButton({
         return;
       }
 
-      const userId = localStorage.getItem("user_id");
-      if (!userId) {
+      const userId = localStorage.getItem("user_id") || (() => {
         const userJson = localStorage.getItem("user");
-        if (userJson) {
-          const user = JSON.parse(userJson);
-          localStorage.setItem("user_id", user.id || user.user_id);
+        if (!userJson) return null;
+        try {
+          const u = JSON.parse(userJson);
+          const idVal = u?.id ?? u?.user_id ?? null;
+          if (idVal) localStorage.setItem("user_id", String(idVal));
+          return idVal ? String(idVal) : null;
+        } catch (e) {
+          return null;
         }
-      }
+      })();
 
-      // Validate writerId
-      if (!writerId) {
+      // Validate writerId (ensure numeric)
+      const numericWriterId = Number(writerId);
+      if (!numericWriterId || Number.isNaN(numericWriterId)) {
         const msg = "FollowButton: missing writerId";
         console.error(msg);
         showToast(msg, { type: "error" });
@@ -62,8 +67,8 @@ export default function FollowButton({
 
       // เรียก API ติดตามนักเขียน
       const endpoint = isFollowed
-        ? `${API_BASE_URL}/api/writers/${writerId}/unfollow`
-        : `${API_BASE_URL}/api/writers/${writerId}/follow`;
+        ? `${API_BASE_URL}/api/writers/${numericWriterId}/unfollow`
+        : `${API_BASE_URL}/api/writers/${numericWriterId}/follow`;
 
       // Debug info (use console.log so it's visible even if debug level filtered)
       console.log("FollowButton: calling endpoint", endpoint, { writerId, isFollowed });
@@ -78,12 +83,17 @@ export default function FollowButton({
         },
       });
 
+      // log status and body for debugging follow behavior
+      let respBody = null;
+      try {
+        respBody = await response.json().catch(() => null);
+      } catch (e) {
+        respBody = null;
+      }
+      console.debug("FollowButton: response", { status: response.status, ok: response.ok, body: respBody });
+
       if (!response.ok) {
-        let errorText = "การติดตามล้มเหลว";
-        try {
-          const json = await response.json();
-          errorText = json.message || json.error || errorText;
-        } catch (_) {}
+        const errorText = (respBody && (respBody.message || respBody.error)) || `การติดตามล้มเหลว (${response.status})`;
         showToast(errorText, { type: "error" });
         throw new Error(errorText);
       }
