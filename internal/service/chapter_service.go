@@ -32,3 +32,7 @@ func (s *chapterService) UpdateChapter(chapter models.Chapter) error {
 func (s *chapterService) DeleteChapter(chapterID int) error {
 	return s.repo.DeleteChapter(chapterID)
 }
+
+func (s *chapterService) ReorderChapters(orderedIDs []int) error {
+	return s.repo.ReorderChapters(orderedIDs)
+}

@@ -4,19 +4,22 @@ import "time"
 
 // ✅ ใช้กับ database
 type Scene struct {
-	SceneID           int      `json:"scene_id"`
-	ChapterID         int      `json:"chapter_id"`
-	NovelID           int      `json:"novel_id"`
-	Title             string   `json:"title"`
-	Content           string   `json:"content"`
-	ImageURL          string   `json:"image_url"`
-	Type              string   `json:"type"`
-	EndingTitle       *string  `json:"ending_title,omitempty"`
-	EndingType        *string  `json:"ending_type,omitempty"`
-	EndingDescription *string  `json:"ending_description,omitempty"`
-	Choices           []Choice `json:"choices,omitempty"`
-	NovelTitle        string   `json:"-"`
-	ChapterTitle      string   `json:"-"`
+	SceneID           int       `json:"scene_id"`
+	ChapterID         int       `json:"chapter_id"`
+	NovelID           int       `json:"novel_id"`
+	Title             string    `json:"title"`
+	Content           string    `json:"content"`
+	ImageURL          string    `json:"image_url"`
+	Type              string    `json:"type"`
+	Status            string    `json:"status,omitempty"`
+	EndingTitle       *string   `json:"ending_title,omitempty"`
+	EndingType        *string   `json:"ending_type,omitempty"`
+	EndingDescription *string   `json:"ending_description,omitempty"`
+	Choices           []Choice  `json:"choices,omitempty"`
+	CreatedAt         time.Time `json:"created_at,omitempty"`
+	UpdatedAt         time.Time `json:"updated_at,omitempty"`
+	NovelTitle        string    `json:"-"`
+	ChapterTitle      string    `json:"-"`
 }
 
 // ✅ ใช้ส่งให้ frontend
@@ -27,6 +30,7 @@ type SceneResponse struct {
 	SceneTitle        string   `json:"scene_title"`
 	Content           string   `json:"content"`
 	Type              string   `json:"type"`
+	Status            string   `json:"status,omitempty"`
 	ImageURL          string   `json:"image_url"`
 	EndingTitle       *string  `json:"ending_title,omitempty"`
 	EndingType        *string  `json:"ending_type,omitempty"`

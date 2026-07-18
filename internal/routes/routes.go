@@ -202,6 +202,9 @@ func novelSubRouter(novel service.NovelService, scene service.SceneService, chap
 		path := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/novels/"), "/")
 
 		switch {
+		case r.Method == http.MethodPut && strings.HasSuffix(path, "/chapters/reorder"):
+			middleware.RequireAuth(http.HandlerFunc(handlers.ReorderChaptersHandler(chapter))).ServeHTTP(w, r)
+			return
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/chapters"):
 			handlers.GetChaptersByNovelHandler(chapter, novel, writer)(w, r)
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/comments/count"):

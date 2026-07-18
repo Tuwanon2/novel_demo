@@ -147,6 +147,10 @@ func (r *postgresChapterRepository) DeleteChapter(chapterID int) error {
 	return DeleteChapter(r.db, chapterID)
 }
 
+func (r *postgresChapterRepository) ReorderChapters(orderedIDs []int) error {
+	return ReorderChapters(r.db, orderedIDs)
+}
+
 // ======= Social Repository Methods =======
 
 func (r *postgresSocialRepository) AddLike(like models.Like) error {

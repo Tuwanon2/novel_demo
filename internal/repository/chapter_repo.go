@@ -84,3 +84,31 @@ func DeleteChapter(db *sql.DB, chapterID int) error {
     `, chapterID)
 	return err
 }
+
+// ReorderChapters updates the episode/order of existing chapters according to
+// the provided slice of chapter IDs (ordered from top to bottom). This will
+// perform UPDATEs per ID and will not delete or recreate rows.
+func ReorderChapters(db *sql.DB, orderedIDs []int) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	for idx, id := range orderedIDs {
+		// set episode starting from 1
+		if _, err = tx.Exec(`UPDATE chapters SET episode = $1, updated_at = NOW() WHERE chapter_id = $2`, idx+1, id); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}

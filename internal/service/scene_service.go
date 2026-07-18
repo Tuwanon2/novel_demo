@@ -51,6 +51,7 @@ func (s *sceneService) GetScene(sceneID int) (models.SceneResponse, error) {
 		SceneID:           scene.SceneID,
 		Content:           scene.Content,
 		Type:              scene.Type,
+		Status:            scene.Status,
 		ImageURL:          s.formatImageURL(scene.ImageURL),
 		EndingTitle:       scene.EndingTitle,
 		EndingType:        scene.EndingType,
@@ -76,6 +77,7 @@ func (s *sceneService) GetStartScene(novelID int) (models.SceneResponse, error) 
 		SceneID:           scene.SceneID,
 		Content:           scene.Content,
 		Type:              scene.Type,
+		Status:            scene.Status,
 		ImageURL:          s.formatImageURL(scene.ImageURL),
 		EndingTitle:       scene.EndingTitle,
 		EndingType:        scene.EndingType,
@@ -94,6 +96,9 @@ func (s *sceneService) GetScenesByChapterID(chapterID int) ([]models.Scene, erro
 func (s *sceneService) CreateScene(scene models.Scene) (int, error) {
 	// ตัดช่องว่างหน้า-หลังชื่อฉาก ป้องกัน "ฉากที่ 1" กับ "ฉากที่ 1 " ซ้ำกัน
 	scene.Title = strings.TrimSpace(scene.Title)
+	if strings.TrimSpace(scene.Status) == "" {
+		scene.Status = "draft"
+	}
 
 	count, err := s.repo.CountScenesInNovel(scene.NovelID)
 	if err != nil {
@@ -143,6 +148,10 @@ func (s *sceneService) UpdateScene(scene models.Scene) error {
 	} else if existing.Type == "start" {
 		// Force start scene to remain start
 		scene.Type = "start"
+	}
+
+	if strings.TrimSpace(scene.Status) == "" {
+		scene.Status = existing.Status
 	}
 
 	// Validation: Prevent ending scene from having outgoing choices

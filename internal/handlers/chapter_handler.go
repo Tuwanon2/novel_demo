@@ -120,3 +120,31 @@ func DeleteChapterHandler(chapterService service.ChapterService) http.HandlerFun
 		RespondWithJSON(w, http.StatusOK, map[string]any{"message": "chapter deleted"})
 	}
 }
+
+func ReorderChaptersHandler(chapterService service.ChapterService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			RespondWithError3(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		var payload struct {
+			Order []int `json:"order"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			RespondWithError3(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		if len(payload.Order) == 0 {
+			RespondWithError3(w, http.StatusBadRequest, "order empty")
+			return
+		}
+
+		if err := chapterService.ReorderChapters(payload.Order); err != nil {
+			RespondWithError3(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		RespondWithJSON(w, http.StatusOK, map[string]any{"message": "chapters reordered"})
+	}
+}

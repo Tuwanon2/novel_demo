@@ -146,6 +146,7 @@ type CreateSceneRequest struct {
 	Content           string `json:"content"`
 	ImageURL          string `json:"image_url"`
 	Type              string `json:"type"`
+	Status            string `json:"status"`
 	EndingTitle       string `json:"ending_title"`
 	EndingType        string `json:"ending_type"`
 	EndingDescription string `json:"ending_description"`
@@ -163,6 +164,9 @@ func (r *CreateSceneRequest) Validate() error {
 	}
 	if strings.TrimSpace(r.Type) == "" {
 		r.Type = "normal"
+	}
+	if strings.TrimSpace(r.Status) == "" {
+		r.Status = "draft"
 	}
 	return nil
 }

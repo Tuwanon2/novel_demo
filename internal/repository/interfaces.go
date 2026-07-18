@@ -44,6 +44,7 @@ type ChapterRepository interface {
 	CreateChapter(models.Chapter) (int, error)
 	UpdateChapter(models.Chapter) error
 	DeleteChapter(chapterID int) error
+	ReorderChapters(orderedIDs []int) error
 }
 
 type SocialRepository interface {

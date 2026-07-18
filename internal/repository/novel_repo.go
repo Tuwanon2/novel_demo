@@ -243,8 +243,18 @@ func UpdateNovel(db *sql.DB, novel models.Novel) error {
 		return err
 	}
 	if len(novel.CategoryIDs) > 0 {
+		// Deduplicate category IDs to avoid unique constraint violations
+		seen := make(map[int]bool)
 		for _, catID := range novel.CategoryIDs {
-			if _, err = tx.ExecContext(ctx, `INSERT INTO novel_categories (novel_id, category_id) VALUES ($1, $2)`, novel.ID, catID); err != nil {
+			if catID == 0 {
+				continue
+			}
+			if seen[catID] {
+				continue
+			}
+			seen[catID] = true
+			// Use ON CONFLICT DO NOTHING to be idempotent in case row already exists
+			if _, err = tx.ExecContext(ctx, `INSERT INTO novel_categories (novel_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, novel.ID, catID); err != nil {
 				return err
 			}
 		}

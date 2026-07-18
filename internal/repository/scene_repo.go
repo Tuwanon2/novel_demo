@@ -12,8 +12,9 @@ func GetSceneByID(db *sql.DB, id int) (*models.Scene, error) {
 	// 🎯 ใช้ INNER JOIN ไปเกี่ยวเอาชื่อเรื่องนิยายหลัก และชื่อตอนย่อยมาพร้อมกันเลยครับน้า
 	row := db.QueryRow(`
 		SELECT 
-			s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, 
+			s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, s.status,
 			s.ending_title, s.ending_type, s.ending_description,
+			s.created_at, s.updated_at,
 			n.title AS novel_title,
 			c.title AS chapter_title
 		FROM scenes s
@@ -24,8 +25,9 @@ func GetSceneByID(db *sql.DB, id int) (*models.Scene, error) {
 
 	var s models.Scene
 	err := row.Scan(
-		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
+		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type, &s.Status,
 		&endingTitle, &endingType, &endingDescription,
+		&s.CreatedAt, &s.UpdatedAt,
 		&s.NovelTitle, &s.ChapterTitle, // 👈 แสกนค่าชื่อเรื่องและชื่อตอนลงตัวแปรพิเศษ
 	)
 	if err != nil {
@@ -52,8 +54,9 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 	// 🎯 พยายามดึงฉากที่ถูกมาร์กเป็น start ก่อน
 	row := db.QueryRow(`
 		SELECT 
-			s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, 
+			s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, s.status,
 			s.ending_title, s.ending_type, s.ending_description,
+			s.created_at, s.updated_at,
 			n.title AS novel_title,
 			c.title AS chapter_title
 		FROM scenes s
@@ -65,8 +68,9 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 
 	var s models.Scene
 	err := row.Scan(
-		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
+		&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type, &s.Status,
 		&endingTitle, &endingType, &endingDescription,
+		&s.CreatedAt, &s.UpdatedAt,
 		&s.NovelTitle, &s.ChapterTitle,
 	)
 	if err != nil {
@@ -74,8 +78,9 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 			// ถ้าไม่มีฉากประเภท start ให้ fallback ไปฉากแรกสุดของนิยายแทน
 			row = db.QueryRow(`
 				SELECT 
-					s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, 
+					s.scene_id, s.chapter_id, s.novel_id, s.title, s.content, s.image_url, s.type, s.status,
 					s.ending_title, s.ending_type, s.ending_description,
+					s.created_at, s.updated_at,
 					n.title AS novel_title,
 					c.title AS chapter_title
 				FROM scenes s
@@ -88,6 +93,7 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 			err = row.Scan(
 				&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type,
 				&endingTitle, &endingType, &endingDescription,
+				&s.CreatedAt, &s.UpdatedAt,
 				&s.NovelTitle, &s.ChapterTitle,
 			)
 		}
@@ -112,7 +118,7 @@ func GetStartSceneByNovelID(db *sql.DB, novelID int) (*models.Scene, error) {
 // GetScenesByChapterID ดึงฉากทั้งหมดในตอนนั้นๆ
 func GetScenesByChapterID(db *sql.DB, chapterID int) ([]models.Scene, error) {
 	rows, err := db.Query(`
-		SELECT scene_id, chapter_id, novel_id, title, content, image_url, type, ending_title, ending_type, ending_description
+		SELECT scene_id, chapter_id, novel_id, title, content, image_url, type, status, ending_title, ending_type, ending_description, created_at, updated_at
 		FROM scenes
 		WHERE chapter_id = $1
 		ORDER BY scene_id ASC
@@ -125,7 +131,7 @@ func GetScenesByChapterID(db *sql.DB, chapterID int) ([]models.Scene, error) {
 	scenes := []models.Scene{}
 	for rows.Next() {
 		var s models.Scene
-		err := rows.Scan(&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type, &s.EndingTitle, &s.EndingType, &s.EndingDescription)
+		err := rows.Scan(&s.SceneID, &s.ChapterID, &s.NovelID, &s.Title, &s.Content, &s.ImageURL, &s.Type, &s.Status, &s.EndingTitle, &s.EndingType, &s.EndingDescription, &s.CreatedAt, &s.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -145,10 +151,10 @@ func GetScenesByChapterID(db *sql.DB, chapterID int) ([]models.Scene, error) {
 func CreateScene(db *sql.DB, scene models.Scene) (int, error) {
 	var id int
 	err := db.QueryRow(`
-		INSERT INTO scenes (chapter_id, novel_id, title, content, image_url, type, ending_title, ending_type, ending_description)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO scenes (chapter_id, novel_id, title, content, image_url, type, status, ending_title, ending_type, ending_description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING scene_id
-	`, scene.ChapterID, scene.NovelID, scene.Title, scene.Content, scene.ImageURL, scene.Type, scene.EndingTitle, scene.EndingType, scene.EndingDescription).Scan(&id)
+	`, scene.ChapterID, scene.NovelID, scene.Title, scene.Content, scene.ImageURL, scene.Type, scene.Status, scene.EndingTitle, scene.EndingType, scene.EndingDescription).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -156,18 +162,44 @@ func CreateScene(db *sql.DB, scene models.Scene) (int, error) {
 }
 
 func UpdateScene(db *sql.DB, scene models.Scene) error {
-	_, err := db.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	_, err = tx.Exec(`
 		UPDATE scenes
 		SET title = $1,
 		    content = $2,
 		    image_url = $3,
 		    type = $4,
-		    ending_title = $5,
-		    ending_type = $6,
-		    ending_description = $7
-		WHERE scene_id = $8
-	`, scene.Title, scene.Content, scene.ImageURL, scene.Type, scene.EndingTitle, scene.EndingType, scene.EndingDescription, scene.SceneID)
-	return err
+		    status = $5,
+		    ending_title = $6,
+		    ending_type = $7,
+		    ending_description = $8,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE scene_id = $9
+	`, scene.Title, scene.Content, scene.ImageURL, scene.Type, scene.Status, scene.EndingTitle, scene.EndingType, scene.EndingDescription, scene.SceneID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+		UPDATE chapters
+		SET updated_at = CURRENT_TIMESTAMP
+		WHERE chapter_id = (SELECT chapter_id FROM scenes WHERE scene_id = $1)
+	`, scene.SceneID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func DeleteScene(db *sql.DB, sceneID int) error {
