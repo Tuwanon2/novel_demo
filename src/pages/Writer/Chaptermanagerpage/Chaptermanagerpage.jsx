@@ -177,6 +177,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
   const choiceId = choice?.id ?? choice?.ID ?? choice?.choice_id ?? choice?.ChoiceID;
   const choiceText = choice?.label ?? choice?.Label ?? choice?.text ?? choice?.Text ?? "";
   const choiceTargetSceneId = choice?.to_scene_id ?? choice?.ToSceneID ?? choice?.target_scene_id ?? choice?.TargetSceneID ?? "";
+  const fromSceneId = choice?.from_scene_id ?? choice?.fromSceneID;
   const isNew = choice?.temp === true || String(choiceId).startsWith("temp-");
 
   const [text, setText] = useState(choiceText);
@@ -196,6 +197,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
     };
   }, []);
 
+  // 📝 อาเรย์รวมฉากทั้งหมด เรียงตามลำดับเส้นเวลาของเรื่อง (Global Narrative Sequence)
   const allScenes = (sceneOptions || []).flatMap((ch, index) => {
     const chTitle = ch.episode ?? ch.Episode ?? ch.title ?? ch.Title ?? `ตอนที่ ${index + 1}`;
     const chId = ch.id ?? ch.ID ?? ch.chapter_id ?? ch.ChapterID;
@@ -225,9 +227,16 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
     ? currentChapterId
     : selectedChapterId ?? (String(defaultChapterId) !== String(currentChapterId) ? defaultChapterId : firstOtherChapterId);
 
-  const currentChapterScenes = allScenes.filter((scene) => String(scene.chapterId) === String(effectiveChapterId));
+  // 🔍 หาตำแหน่ง Index ของฉากต้นทางปัจจุบันในไทม์ไลน์ใหญ่
+  const fromSceneIndex = allScenes.findIndex(s => String(s.value) === String(fromSceneId));
 
-  // ปรับแก้ลอจิก State เริ่มต้นตรงนี้: ถ้าของใหม่ไม่ดึงตัวแรกออโต้ เพื่อให้ตกลงไปที่ placeholder เปล่าๆ ก่อน
+  // 🛡️ กรองฉากปลายทางใน Dropdown: แสดงเฉพาะฉากที่มีตำแหน่ง "มากกว่า" ฉากปัจจุบันเท่านั้น (Forward-Only)
+  const currentChapterScenes = allScenes.filter((scene) => {
+    if (String(scene.chapterId) !== String(effectiveChapterId)) return false;
+    const sceneIndexInAll = allScenes.findIndex(s => String(s.value) === String(scene.value));
+    return sceneIndexInAll > fromSceneIndex; // ต้องอยู่ข้างหน้าเท่านั้น
+  });
+
   const effectiveSubScene = subScene || (isNew ? "" : choiceTargetSceneId || currentChapterScenes[0]?.value || "");
   const selectedTargetScene = allScenes.find((scene) => String(scene.value) === String(effectiveSubScene));
 
@@ -237,9 +246,29 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
       return;
     }
 
-    // 🛑 ดักจับกรณีไม่ได้เลือกฉากปลายทาง (ป้องกันการบันทึกสุ่มลง DB)
     if (!effectiveSubScene || effectiveSubScene === "") {
       alert("กรุณาเลือกฉากปลายทางที่ต้องการเชื่อมโยง");
+      return;
+    }
+
+    const currentFromSceneId = fromSceneId;
+    const targetSceneId = effectiveSubScene;
+
+    // 🔍 หา Index เพื่อเปรียบเทียบความสัมพันธ์ของลำดับฉาก
+    const targetSceneIndex = allScenes.findIndex(s => String(s.value) === String(targetSceneId));
+
+    if (fromSceneIndex === -1 || targetSceneIndex === -1) {
+      alert("❌ ไม่พบข้อมูลตำแหน่งของฉากในระบบ กรุณาตรวจสอบอีกครั้ง");
+      return;
+    }
+
+    // 🛑 [✨ ตรรกะใหม่ตามที่สั่ง] ตรวจสอบกฎเหล็ก: ฉากปลายทางต้องมากกว่าฉากปัจจุบันเสมอ ห้ามเท่ากับ(ตัวเอง) และห้ามย้อนกลับ(<)
+    if (targetSceneIndex <= fromSceneIndex) {
+      if (targetSceneIndex === fromSceneIndex) {
+        alert("❌ ไม่สามารถบันทึกได้: ระบบไม่อนุญาตให้สร้างช้อยส์โยงเข้าหาฉากตัวเองเด็ดขาด");
+      } else {
+        alert("❌ ไม่สามารถบันทึกได้: ระบบทำงานด้วยกฎเดินหน้าอย่างเดียว (Forward-Only) ห้ามสร้างช้อยส์โยงย้อนกลับไปยังฉากก่อนหน้า");
+      }
       return;
     }
 
@@ -265,7 +294,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
           setIsEditing(false);
         }, 1200);
       } else {
-        alert("❌ บันทึกไม่สำเร็จ: ตัวเลือกไม่สามารถเชื่อมโยงกลับมายังฉากเดิมได้");
+        alert("❌ บันทึกไม่สำเร็จ: ตัวเลือกไม่สามารถเชื่อมโยงระบบได้");
       }
     } catch (err) {
       console.error("บันทึกตัวเลือกล้มเหลว:", err);
@@ -327,7 +356,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
                 setScope(nextScope);
                 if (nextScope === "same") {
                   setSelectedChapterId(currentChapterId);
-                  setSubScene(""); // รีเซ็ตให้เลือกใหม่ ป้องกันบั๊กสุ่มบันทึก
+                  setSubScene(""); 
                 } else {
                   const nextChapterId = selectedChapterId || firstOtherChapterId;
                   setSelectedChapterId(nextChapterId);
@@ -345,7 +374,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
                 <select className="cm-select" value={effectiveChapterId || ""} onChange={(e) => {
                   const chapterId = e.target.value;
                   setSelectedChapterId(chapterId);
-                  setSubScene(""); // รีเซ็ตทุกครั้งที่เปลี่ยนบทป้องกันบั๊กสุ่มบันทึก
+                  setSubScene(""); 
                 }}>
                   <option value="">-- เลือกตอน --</option>
                   {chapterOptions.filter((ch) => String(ch.value) !== String(currentChapterId)).map((ch) => (
@@ -358,8 +387,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
             <div className="cm-choice__field" style={{ flex: 1 }}>
               <label className="cm-choice__label" style={{ fontSize: '12.5px', fontWeight: 'bold' }}>เลือกฉากปลายทาง</label>
               <select className="cm-select" value={effectiveSubScene || ""} onChange={(e) => setSubScene(e.target.value)}>
-                {/* 👇 เพิ่ม Placeholder ป้องกันบราวเซอร์ดึงค่าแรกอัตโนมัติ */}
-                <option value="">-- กรุณาเลือกฉากปลายทาง --</option>
+                <option value="">{currentChapterScenes.length > 0 ? "-- กรุณาเลือกฉากปลายทาง --" : "-- ไม่มีฉากถัดไปที่สามารถเลือกโยงได้ --"}</option>
                 {currentChapterScenes.map((s) => (
                   <option key={`target-scene-opt-${s.value}`} value={s.value}>{s.chapterLabel} › {s.label}</option>
                 ))}
@@ -465,7 +493,6 @@ const SceneCard = ({
     }
 
     const uniqueTempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    // เพิ่มการกำหนดค่าเริ่มต้นของปลายทางเป็นแบบเว้นว่างไว้เพื่อรอการระบุค่าจากผู้ใช้ใน Form
     setNewChoices((prev) => [...prev, { id: uniqueTempId, temp: true, from_scene_id: sceneId, label: "", to_scene_id: "" }]);
     setIsBodyOpen(true);
   };
@@ -948,7 +975,6 @@ const ChapterPanel = ({
     setIsSavingTitle(true);
     try {
       const authToken = getToken();
-      // แก้ไข URL Hardcode มาใช้ตัวแปร API_BASE
       const res = await fetch(`${API_BASE}/chapters/${chapterId}`, {
         method: "PUT",
         headers: {
@@ -982,7 +1008,6 @@ const ChapterPanel = ({
     setIsUpdatingStatus(true);
     try {
       const authToken = getToken();
-      // แก้ไข URL Hardcode มาใช้ตัวแปร API_BASE
       const chapterRes = await fetch(`${API_BASE}/chapters/${chapterId}`, {
         method: "PUT",
         headers: {
@@ -1019,7 +1044,6 @@ const ChapterPanel = ({
           ending_description: scene?.ending_description ?? scene?.endingDescription ?? scene?.EndingDescription ?? "",
         };
 
-        // แก้ไข URL Hardcode มาใช้ตัวแปร API_BASE
         const sceneRes = await fetch(`${API_BASE}/scenes/${sceneId}`, {
           method: "PUT",
           headers: {
@@ -1509,6 +1533,21 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     });
   };
 
+  const handleOpenPreview = () => {
+    const idToOpen = currentNovelId || (novel && (novel.id || novel.novel_id || novel.novelId));
+    if (!idToOpen) {
+      alert("ไม่พบรหัสนิยายสำหรับพรีวิว");
+      return;
+    }
+    const previewUrl = `/novel/${idToOpen}?preview=true`;
+    try {
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      // fallback to navigation in same tab if popup blocked
+      window.location.href = previewUrl;
+    }
+  };
+
   const handleDeleteChapter = async (chapterId) => {
     if (!chapterId) return;
     openConfirmDialog({
@@ -1554,7 +1593,6 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     const episode = String(ch.episode ?? ch.Episode ?? "");
     const search = searchTerm.toLowerCase().trim();
 
-    // ค้นหาได้ทั้งจากชื่อตอน หรือ ค้นหาด้วยตัวเลขตอนเฉยๆ ก็เจอ
     return title.includes(search) || episode.includes(search);
   });
   if (loading) {
@@ -1569,12 +1607,23 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
             <h1 className="cm-topbar__title">จัดการตอนนิยาย</h1>
             <p className="cm-topbar__sub">จัดการรายการตอนและรายละเอียดฉากของคุณ</p>
           </div>
-          <button
-            className="cm-btn cm-btn--outline"
-            onClick={() => onNavigate("story-tree", { novelId: currentNovelId })}
-          >
-            📊 โครงสร้างเนื้อเรื่อง
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {/* 🆕 เพิ่มปุ่มทดลองอ่าน (Preview) เปิดแท็บใหม่ */}
+            <button
+                className="se-header__btn se-header__btn--preview se-header__btn--preview-inline"
+                type="button"
+                onClick={handleOpenPreview}
+                style={{ padding: "8px 14px", borderRadius: "10px", fontSize: "12px", height: "auto", margin: 0 }}
+              >
+                ▶ ทดลองอ่าน
+              </button>
+            <button
+              className="cm-btn cm-btn--outline"
+              onClick={() => onNavigate("story-tree", { novelId: currentNovelId })}
+            >
+              📊 โครงสร้างเนื้อเรื่อง
+            </button>
+          </div>
         </div>
 
         <NovelBanner
