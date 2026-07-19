@@ -701,12 +701,14 @@ const SceneEditorPage = ({
   sceneId,
   onNavigate,
   initialSceneTitle,
+  initialNovelTitle,
+  initialChapterTitle,
   x,
   y,
 }) => {
   const navigate = useNavigate();
-  const [novelTitle, setNovelTitle] = useState("");
-  const [chapterTitle, setChapterTitle] = useState("");
+  const [novelTitle, setNovelTitle] = useState(initialNovelTitle || "");
+  const [chapterTitle, setChapterTitle] = useState(initialChapterTitle || "");
   const [sceneLabel, setSceneLabel] = useState("");
 
   const [sceneTitle, setSceneTitle] = useState("");
@@ -911,6 +913,18 @@ const SceneEditorPage = ({
         setChapters(Array.isArray(chaptersData) ? chaptersData : []);
       }
 
+      // ดึงข้อมูลนิยายเพื่อแสดงชื่อเรื่องที่ header เมื่อสร้างฉากใหม่
+      try {
+        const novelRes = await fetch(`${API_BASE_URL}/novels/${novelId}`, { headers });
+        if (novelRes.ok) {
+          const novelResult = await novelRes.json().catch(() => null);
+          const novelData = novelResult?.novel || novelResult?.data || novelResult || {};
+          setNovelTitle(novelData.title || novelData.title || novelData.name || novelData.novelTitle || "ไม่ระบุชื่อนิยาย");
+        }
+      } catch (e) {
+        // ignore
+      }
+
       if (!isNewScene) {
         const sceneRes = await fetch(`${API_BASE_URL}/scenes/${sceneId}`, {
           headers,
@@ -981,7 +995,7 @@ const SceneEditorPage = ({
       } else {
         // กรณีเป็นฉากใหม่ชั่วคราวที่คลิกวางจาก Canvas
         setSceneTitle(initialSceneTitle || "");
-        setSceneLabel(initialSceneTitle || "ฉากใหม่ยังไม่มีเนื้อหา");
+        setSceneLabel(initialSceneTitle || "ยังไม่ได้ตั้งชื่อเรื่อง");
         setContent("");
         setSceneType("normal");
         setIsPublished(false);
@@ -1000,6 +1014,10 @@ const SceneEditorPage = ({
         const activeChId = chapterId && chapterId !== "new" ? chapterId : (chaptersData[0]?.id ?? chaptersData[0]?.chapter_id ?? chaptersData[0]?.ChapterID ?? chaptersData[0]?.chapterId);
         if (activeChId) {
           setCurrentSelectedChapterId(String(activeChId));
+          const foundChapter = chaptersData.find((c) => String(c.id ?? c.chapter_id ?? c.ChapterID ?? c.chapterId) === String(activeChId));
+          if (foundChapter) {
+            setChapterTitle(foundChapter.title || foundChapter.Title || `ตอนที่ ${foundChapter.episode ?? "?"}`);
+          }
         }
       }
     } catch (err) {
@@ -1126,9 +1144,19 @@ const SceneEditorPage = ({
         const savedData = await response.json().catch(() => null);
         const savedSceneId = savedData?.data?.scene_id || savedData?.scene_id || savedData?.data?.id || savedData?.id;
         
-        if (savedSceneId && typeof onNavigate === "function") {
+        if (savedSceneId) {
           setIsSaving(false);
-          onNavigate("scene-editor", { novelId, chapterId: targetChapterId, sceneId: savedSceneId });
+          // Replace the current history entry so that pressing Back
+          // doesn't return to the temporary `scene=new` route.
+          const chapterQuery = targetChapterId ? `?chapterId=${encodeURIComponent(targetChapterId)}` : "";
+          try {
+            navigate(`/writer/${novelId}/scene/${savedSceneId}${chapterQuery}`, { replace: true });
+          } catch (e) {
+            // fallback to onNavigate if navigate isn't available
+            if (typeof onNavigate === "function") {
+              onNavigate("scene-editor", { novelId, chapterId: targetChapterId, sceneId: savedSceneId });
+            }
+          }
           return;
         }
       }
@@ -1377,10 +1405,15 @@ const SceneEditorPage = ({
     (s) => String(s.id ?? s.scene_id ?? s.SceneID ?? "") === String(sceneId ?? "")
   );
 
-  const currentScDisplayNumber =
+  let currentScDisplayNumber =
     currentScIndex !== -1
       ? (currentScIndex + 1)
       : null;
+
+  // If creating a new scene, show it as the next scene number in the chapter
+  if (isNewScene) {
+    currentScDisplayNumber = (currentChapterScenes?.length || 0) + 1;
+  }
 
   const [previewMode, setPreviewMode] = useState(false);
 

@@ -141,9 +141,13 @@ const createNavigateHandler = (navigate, currentNovelId = null) => (page, payloa
     case "scene-editor":
     case "write":
       if (activeNovelId && payload?.sceneId) {
-        const chapterQuery = payload?.chapterId ? `?chapterId=${encodeURIComponent(payload.chapterId)}` : "";
-        const titleQuery = payload?.title ? `${chapterQuery ? "&" : "?"}title=${encodeURIComponent(payload.title)}` : "";
-        navigate(`/writer/${activeNovelId}/scene/${payload.sceneId}${chapterQuery}${titleQuery}`);
+        const parts = [];
+        if (payload?.chapterId) parts.push(`chapterId=${encodeURIComponent(payload.chapterId)}`);
+        if (payload?.title) parts.push(`title=${encodeURIComponent(payload.title)}`);
+        if (payload?.novelTitle) parts.push(`novelTitle=${encodeURIComponent(payload.novelTitle)}`);
+        if (payload?.chapterTitle) parts.push(`chapterTitle=${encodeURIComponent(payload.chapterTitle)}`);
+        const query = parts.length > 0 ? `?${parts.join("&")}` : "";
+        navigate(`/writer/${activeNovelId}/scene/${payload.sceneId}${query}`);
       } else {
         console.warn("⚠️ ไม่สามารถเปิดหน้าเขียนได้เนื่องจากข้อมูลไม่ครบ:", { activeNovelId, payload });
       }
@@ -293,7 +297,9 @@ const SceneEditorRoute = () => {
 
   const searchParams = new URLSearchParams(location.search);
   const fallbackChapterId = searchParams.get("chapterId") || "";
-  const fallbackSceneTitle = searchParams.get("title") || "";
+    const fallbackSceneTitle = searchParams.get("title") || "";
+    const fallbackNovelTitle = searchParams.get("novelTitle") || "";
+    const fallbackChapterTitle = searchParams.get("chapterTitle") || "";
 
   useEffect(() => {
     if (!sceneId || sceneId === "new") {
@@ -344,6 +350,8 @@ const SceneEditorRoute = () => {
           chapterId={chapterId}
           sceneId={sceneId}
           initialSceneTitle={fallbackSceneTitle}
+          initialNovelTitle={fallbackNovelTitle}
+          initialChapterTitle={fallbackChapterTitle}
           onNavigate={navHandler}
         />
       )}
