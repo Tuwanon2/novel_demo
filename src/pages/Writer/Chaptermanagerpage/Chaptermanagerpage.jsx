@@ -1140,6 +1140,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
   const [isCreatingChapter, setIsCreatingChapter] = useState(false);
   const [draftChapterTitle, setDraftChapterTitle] = useState("");
   const [draftChapterStatus, setDraftChapterStatus] = useState("draft");
+  const [searchTerm, setSearchTerm] = useState("");
   const [lockedChapterIds, setLockedChapterIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -1501,6 +1502,15 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     return String(id) === String(activeChapterId);
   });
 
+  const filteredChapters = chapters.filter((ch) => {
+    const title = (ch.title ?? ch.Title ?? "").toLowerCase();
+    const episode = String(ch.episode ?? ch.Episode ?? "");
+    const search = searchTerm.toLowerCase().trim();
+
+    // ค้นหาได้ทั้งจากชื่อตอน หรือ ค้นหาด้วยตัวเลขตอนเฉยๆ ก็เจอ
+    return title.includes(search) || episode.includes(search);
+  });
+
   if (loading) {
     return <div className="cm-loading-fullscreen">🔄 โหลดข้อมูลพล็อตสตอรี่ทรี...</div>;
   }
@@ -1558,12 +1568,30 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
 
       <aside className="cm-sidebar">
         <div className="cm-sidebar__header">
-          ☰ รายชื่อตอนทั้งหมด ({chapters.length})
+          ☰ รายชื่อตอนทั้งหมด ({filteredChapters.length} / {chapters.length})
         </div>
 
         <button className="cm-sidebar__add" onClick={openCreateChapterForm}>
           ✨ สร้างตอนใหม่
         </button>
+
+        <div style={{ padding: "0 16px 12px 16px" }}>
+          <input
+            type="text"
+            placeholder="🔍 ค้นหาเลขตอน หรือชื่อตอน..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: "1px solid #fbcfe8",
+              fontSize: "13.5px",
+              outline: "none",
+              boxSizing: "border-box"
+            }}
+          />
+        </div>
 
         {isCreatingChapter && (
           <div className="cm-sidebar__new-form">
@@ -1618,7 +1646,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
             <Droppable droppableId="chapters-droppable">
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps}>
-                  {chapters.map((ch, index) => {
+                  {filteredChapters.map((ch, index) => {
                     const chId = ch.id ?? ch.ID ?? ch.chapter_id ?? ch.ChapterID ?? index;
                     const chKey = String(chId);
                     const chTitle = ch.title ?? ch.Title ?? `ตอนที่ ${index + 1}`;
