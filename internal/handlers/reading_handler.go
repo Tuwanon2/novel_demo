@@ -1,0 +1,241 @@
+package handlers
+
+import (
+	"encoding/json"
+	"net/http"
+	"strconv"
+
+	"novel-be/internal/dto"
+	"novel-be/internal/middleware"
+	"novel-be/internal/models"
+	"novel-be/internal/service"
+)
+
+// StartReadingHandler หาฉากแรกสุดของนิยายเรื่องนั้น
+func StartReadingHandler(sceneService service.SceneService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// รับ id จาก path parameter เช่น /novels/{id}/start
+		novelID, err := extractIDFromPath(r.URL.Path, "/novels/")
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "ID นิยายไม่ถูกต้อง")
+			return
+		}
+
+		scene, err := sceneService.GetStartScene(novelID)
+		if err != nil {
+			WriteError(w, http.StatusNotFound, "ไม่พบจุดเริ่มต้นของนิยายเรื่องนี้")
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, scene)
+	}
+}
+
+func GetProgressHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
+		if err != nil || userID == 0 {
+			WriteError(w, http.StatusBadRequest, "user_id is required")
+			return
+		}
+
+		novelID, err := strconv.Atoi(r.URL.Query().Get("novel_id"))
+		if err != nil || novelID == 0 {
+			WriteError(w, http.StatusBadRequest, "novel_id is required")
+			return
+		}
+
+		progress, err := readingService.GetProgress(userID, novelID)
+		if err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if progress == nil {
+			WriteJSON(w, http.StatusOK, map[string]any{"message": "no progress found", "progress": nil})
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, progress)
+	}
+}
+
+func GetReadingHistoryHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		novels, err := readingService.GetReadingHistory(int(userID))
+		if err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, map[string]any{"history": novels})
+	}
+}
+
+func ProgressHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodOptions:
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodGet:
+			GetProgressHandler(readingService)(w, r)
+		case http.MethodPost:
+			SaveProgressHandler(readingService)(w, r)
+		case http.MethodDelete:
+			ResetProgressHandler(readingService)(w, r)
+		default:
+			WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
+	}
+}
+
+func ResetProgressHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
+		if err != nil || userID == 0 {
+			WriteError(w, http.StatusBadRequest, "user_id is required")
+			return
+		}
+
+		novelID, err := strconv.Atoi(r.URL.Query().Get("novel_id"))
+		if err != nil || novelID == 0 {
+			WriteError(w, http.StatusBadRequest, "novel_id is required")
+			return
+		}
+
+		if err := readingService.ResetProgress(userID, novelID); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, map[string]string{"message": "progress reset"})
+	}
+}
+
+func RestartStoryHandler(sceneService service.SceneService, readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok || userID == 0 {
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		novelID, err := extractIDFromPath(r.URL.Path, "/novels/")
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid novel id")
+			return
+		}
+
+		startScene, err := sceneService.GetStartScene(novelID)
+		if err != nil {
+			WriteError(w, http.StatusNotFound, "ไม่พบจุดเริ่มต้นของนิยายเรื่องนี้")
+			return
+		}
+
+		if err := readingService.ResetProgress(int(userID), novelID); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if err := readingService.SaveProgress(models.ReadingProgress{
+			UserID:         int(userID),
+			NovelID:        novelID,
+			CurrentSceneID: startScene.SceneID,
+		}); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusOK, dto.RestartStoryResponseDTO{
+			NovelID:      novelID,
+			StartSceneID: startScene.SceneID,
+		})
+	}
+}
+
+func SaveProgressHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req SaveProgressRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		if err := readingService.SaveProgress(models.ReadingProgress{
+			UserID:         req.UserID,
+			NovelID:        req.NovelID,
+			CurrentSceneID: req.CurrentSceneID,
+		}); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusCreated, map[string]string{"message": "progress saved"})
+	}
+}
+
+func RecordChoiceHistoryHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req RecordChoiceHistoryRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		if err := req.Validate(); err != nil {
+			WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		if err := readingService.RecordChoiceHistory(models.ChoiceHistory{UserID: req.UserID, ChoiceID: req.ChoiceID}); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusCreated, map[string]string{"message": "choice history recorded"})
+	}
+}
+
+func RecordUserEndingHandler(readingService service.ReadingService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		type EndingRequest struct {
+			UserID  int `json:"user_id"`
+			NovelID int `json:"novel_id"`
+			SceneID int `json:"scene_id"`
+		}
+
+		var req EndingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		if req.UserID == 0 || req.NovelID == 0 || req.SceneID == 0 {
+			WriteError(w, http.StatusBadRequest, "user_id, novel_id, and scene_id are required")
+			return
+		}
+
+		if err := readingService.RecordEnding(req.UserID, req.NovelID, req.SceneID); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		WriteJSON(w, http.StatusCreated, map[string]string{"message": "ending recorded successfully"})
+	}
+}
