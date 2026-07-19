@@ -1,0 +1,510 @@
+/* src/pages/NovelDetail/NovelDetailPage.css */
+
+.novel-detail {
+  min-height: 100vh;
+  background: var(--gray-50);
+  padding-bottom: 80px;
+}
+
+.novel-detail__container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 24px 0;
+}
+
+/* ── Back button ── */
+.novel-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 888px;
+  border: 1.5px solid var(--gray-100);
+  background: var(--white);
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  margin-bottom: 28px;
+  transition: all 0.18s ease;
+}
+
+.novel-detail__back:hover {
+  border-color: var(--pink-300);
+  color: var(--pink-500);
+  background: var(--pink-50);
+}
+
+/* ── Main layout: aside + info ── */
+.novel-detail__main {
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+  margin-bottom: 40px;
+}
+
+/* Aside: cover card */
+.novel-detail__aside {
+  flex-shrink: 0;
+}
+
+/* Info: right side */
+.novel-detail__info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Genre tags */
+.novel-detail__tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+/* Title */
+.novel-detail__title {
+  font-family: 'Open Sans', serif;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  margin-bottom: 14px;
+}
+
+/* Author row */
+.novel-detail__author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.novel-detail__author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--pink-50);
+  border: 1.5px solid var(--pink-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.novel-detail__author-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.novel-detail__author-name {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+}
+
+/* Synopsis */
+.novel-detail__synopsis {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 15px;
+  color: var(--gray-600);
+  line-height: 1.8;
+  margin-bottom: 24px;
+  max-width: 100%;
+}
+
+/* Progress card */
+.novel-detail__action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.novel-detail__progress {
+  margin-top: 0;
+  max-width: 100%;
+}
+
+.novel-detail__restart-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.novel-detail__restart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px; /* ลดระยะห่างระหว่างไอคอนและข้อความ */
+  
+  /* ปรับ Padding และเอา min-width ออก เพื่อให้ปุ่มหดตัวพอดีกับเนื้อหา */
+  padding: 10px 20px; 
+  width: auto; 
+  
+  border-radius: 999px;
+  border: 1.5px solid var(--pink-500);
+  background: #ffffff;
+  color: var(--pink-500);
+  font-family: 'Sarabun', sans-serif;
+  
+  /* ลดขนาดตัวอักษรให้เท่ากับปุ่มอ่านเลย */
+  font-size: 14px; 
+  font-weight: 600;
+  
+  /* กำหนดความสูงให้คงที่เพื่อให้เท่ากับแถว ActionButtons */
+  height: 42px; 
+  
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.novel-detail__restart-button:hover {
+  background: var(--pink-50);
+  transform: translateY(-1px);
+}
+
+.novel-detail__restart-button:active {
+  transform: translateY(0);
+}
+
+.novel-detail__restart-button:hover {
+  background: var(--pink-50);
+  transform: translateY(-1px);
+}
+
+/* ── Synopsis section ── */
+.novel-detail__synopsis-section {
+  background: var(--white);
+  border: 1.5px solid var(--gray-100);
+  border-radius: 16px;
+  padding: 28px 32px;
+}
+
+.novel-detail__section-title {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.novel-detail__synopsis-detail {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.85;
+  margin-bottom: 20px;
+}
+
+/* Characters */
+.novel-detail__characters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px dashed var(--gray-100);
+  padding-top: 16px;
+}
+
+.novel-detail__character-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+}
+
+.novel-detail__character-role {
+  color: var(--gray-600);
+  min-width: 80px;
+  font-weight: 500;
+}
+
+.novel-detail__character-sep {
+  color: var(--gray-300);
+}
+
+.novel-detail__character-name {
+  color: var(--ink);
+  font-weight: 400;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .novel-detail__main {
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .novel-detail__aside {
+    width: 100%;
+    display: flex;
+    justify-content: center; /* จัดภาพปกให้อยู่กึ่งกลาง */
+  }
+
+  .novel-detail__aside > * {
+    width: 100%;
+    max-width: 220px; /* จำกัดขนาดปกไม่ให้ยืดเต็มจอ iPad */
+  }
+
+  .novel-detail__synopsis-section {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .novel-detail__container {
+    padding: 16px 16px 0;
+  }
+
+  .novel-detail__title {
+    font-size: 26px;
+  }
+}
+
+/* ─────────────────────────────
+   Comments Section
+───────────────────────────── */
+
+.novel-detail__comments-section {
+  margin-top: 32px;
+  background: var(--white);
+  border: 1.5px solid var(--gray-100);
+  border-radius: 20px;
+  padding: 28px 32px;
+}
+
+.novel-detail__comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.novel-detail__comments-count {
+  font-size: 14px;
+  color: var(--gray-500);
+  font-family: 'Sarabun', sans-serif;
+}
+
+/* ── Form ── */
+
+.novel-detail__comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.novel-detail__comment-input {
+  width: 100%;
+  border: 1.5px solid var(--gray-100);
+  border-radius: 16px;
+  padding: 16px;
+  resize: vertical;
+  min-height: 110px;
+
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+
+  background: var(--gray-50);
+  transition: all 0.18s ease;
+}
+
+.novel-detail__comment-input:focus {
+  outline: none;
+  border-color: var(--pink-300);
+  background: var(--white);
+  box-shadow: 0 0 0 4px rgba(255, 182, 193, 0.15);
+}
+
+.novel-detail__comment-button {
+  align-self: flex-end;
+
+  border: none;
+  border-radius: 999px;
+  padding: 11px 22px;
+
+  background: linear-gradient(135deg,
+      var(--pink-400),
+      var(--pink-500));
+
+  color: white;
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.novel-detail__comment-button:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
+/* ── Comment List ── */
+
+.novel-detail__comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.novel-detail__comment-card {
+  display: flex;
+  gap: 14px;
+
+  padding: 18px;
+  border-radius: 18px;
+
+  background: var(--gray-50);
+  border: 1px solid transparent;
+
+  transition: all 0.18s ease;
+}
+
+.novel-detail__comment-card:hover {
+  border-color: var(--pink-100);
+  background: white;
+}
+
+.novel-detail__comment-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+
+  background: linear-gradient(135deg,
+      #ffd6e7,
+      #ffc2d1);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.novel-detail__comment-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.novel-detail__comment-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 8px;
+}
+
+.novel-detail__comment-user {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.novel-detail__comment-date {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.novel-detail__comment-content {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--gray-700);
+
+  white-space: pre-wrap;
+}
+
+/* Empty State */
+
+.novel-detail__comments-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--gray-400);
+  font-size: 14px;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+  .novel-detail__comments-section {
+    padding: 20px;
+  }
+
+  .novel-detail__comment-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+/* ── ปุ่มเริ่มอ่านใหม่ (ใต้ Progress Card) ── */
+.novel-detail__restart-wrapper {
+  display: flex;
+  justify-content: flex-end; /* จัดปุ่มให้อยู่มุมขวาล่าง */
+  margin-top: 12px;
+}
+
+.novel-detail__restart-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gray-500);
+  font-family: 'Sarabun', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* ตอนเอาเมาส์ชี้ จะเปลี่ยนเป็นสีแดงอ่อนๆ เตือนว่าเป็นการ Reset */
+.novel-detail__restart-btn-outline:hover {
+  border-color: #fca5a5;
+  color: #ef4444; 
+  background: #fef2f2;
+}/* ── ปุ่มเริ่มอ่านใหม่ (ใต้ Progress Card) ── */
+.novel-detail__restart-wrapper {
+  display: flex;
+  justify-content: flex-end; /* จัดปุ่มให้อยู่มุมขวาล่าง */
+  margin-top: 12px;
+}
+
+.novel-detail__restart-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gray-500);
+  font-family: 'Sarabun', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* ตอนเอาเมาส์ชี้ จะเปลี่ยนเป็นสีแดงอ่อนๆ เตือนว่าเป็นการ Reset */
+.novel-detail__restart-btn-outline:hover {
+  border-color: #fca5a5;
+  color: #ef4444; 
+  background: #fef2f2;
+}
