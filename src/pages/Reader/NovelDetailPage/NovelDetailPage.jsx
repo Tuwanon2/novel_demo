@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import "./NovelDetailPage.css";
 
 import NovelCoverCard from "../../../components/NovelCoverCard/NovelCoverCard";
@@ -50,7 +50,9 @@ const formatMinioUrl = (url) => {
 
 const NovelDetailPage = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const isPreview = new URLSearchParams(location.search).get("preview") === "true";
   const [novel, setNovel] = useState(initialNovelState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -160,17 +162,20 @@ const NovelDetailPage = () => {
           if (chaptersResponse.ok) {
             const chaptersPayload = await chaptersResponse.json();
             const chaptersList = chaptersPayload?.data?.chapters || chaptersPayload?.chapters || [];
-            
-            const publishedChapters = chaptersList.filter((chapter) => {
-              if (typeof chapter.is_published === "boolean") {
-                return chapter.is_published === true;
-              }
-              const status = chapter.status ?? chapter.Status ?? "";
-              return String(status).toLowerCase() === "published";
-            });
-            
-            // นับเฉพาะตอนที่เปิดให้อ่านแล้ว
-            chaptersCountFromApi = publishedChapters.length; 
+
+            if (isPreview) {
+              chaptersCountFromApi = Array.isArray(chaptersList) ? chaptersList.length : 0;
+            } else {
+              const publishedChapters = chaptersList.filter((chapter) => {
+                if (typeof chapter.is_published === "boolean") {
+                  return chapter.is_published === true;
+                }
+                const status = chapter.status ?? chapter.Status ?? "";
+                return String(status).toLowerCase() === "published";
+              });
+              // นับเฉพาะตอนที่เปิดให้อ่านแล้ว
+              chaptersCountFromApi = publishedChapters.length;
+            }
           }
         } catch (err) {
           console.warn("Failed to fetch chapters:", err);
@@ -289,10 +294,11 @@ const NovelDetailPage = () => {
     }
 
     if (novel.id) {
+      const previewSuffix = isPreview ? "?preview=true" : "";
       if (hasSavedScene) {
-        navigate(`/reading/${novel.id}/${nextSceneId}`);
+        navigate(`/reading/${novel.id}/${nextSceneId}${previewSuffix}`);
       } else {
-        navigate(`/reading/${novel.id}`);
+        navigate(`/reading/${novel.id}${previewSuffix}`);
       }
     }
   };
@@ -519,6 +525,36 @@ const NovelDetailPage = () => {
 
   return (
     <div className="novel-detail">
+      {isPreview && (
+        <div style={{
+          width: "100%",
+          background: "#eff6ff",
+          borderBottom: "1px solid #bfdbfe",
+          padding: "12px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          color: "#1e40af"
+        }}>
+          <span style={{ fontWeight: 700 }}>คุณกำลังอยู่ในโหมดทดลองอ่าน</span>
+          <button
+            type="button"
+            onClick={() => window.close()}
+            style={{
+              background: "#1d4ed8",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "999px",
+              padding: "8px 14px",
+              cursor: "pointer",
+              fontWeight: 700
+            }}
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
       <div className="novel-detail__container">
         <button
           className="novel-detail__back"
@@ -559,7 +595,7 @@ const NovelDetailPage = () => {
               </div>
               <span className="novel-detail__author-name">{novel.author.displayName}</span>
 
-              {novel.author?.writer_id || novel.author?.id ? (
+              {!isPreview && (novel.author?.writer_id || novel.author?.id) ? (
                 <FollowButton
                   writerId={novel.author.writer_id || novel.author.id || novel.author.user_id}
                   writerName={novel.author.displayName}
@@ -579,8 +615,10 @@ const NovelDetailPage = () => {
                 readLabel={novel.userProgress.currentChapter > 0 ? "อ่านต่อ" : "อ่านเลย"}
                 readAriaLabel={novel.userProgress.currentChapter > 0 ? "อ่านต่อ" : "อ่านเลย"}
                 onRead={handleRead}
-                onBookmark={handleBookmark}
-                onLike={handleLike}
+                onBookmark={isPreview ? undefined : handleBookmark}
+                onLike={isPreview ? undefined : handleLike}
+                showBookmark={!isPreview}
+                showLike={!isPreview}
               />
               <div className="novel-detail__restart-row">
                 <button
@@ -617,6 +655,42 @@ const NovelDetailPage = () => {
             dangerouslySetInnerHTML={{ __html: novel.synopsis_detail }}
           />
         </section>
+
+        {!isPreview && (
+          <Comments
+            comments={comments}
+            currentUserId={getCurrentUserId()}
+            commentText={commentText}
+            onCommentTextChange={(e) => setCommentText(e.target.value)}
+            onSubmit={(text) => handleSendComment(text)}
+            onDeleteComment={async (commentId) => {
+              const token = localStorage.getItem("token");
+              if (!token) {
+                navigate("/login-register");
+                return;
+              }
+
+              try {
+                const response = await fetch(`${API_BASE_URL}/comments?comment_id=${commentId}`, {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                });
+
+                if (!response.ok) {
+                  const payload = await response.json().catch(() => null);
+                  throw new Error(payload?.error || payload?.message || `${response.status} ${response.statusText}`);
+                }
+
+                await fetchNovelComments();
+              } catch (err) {
+                console.error("Failed to delete comment:", err);
+                alert(`ไม่สามารถลบความคิดเห็นได้: ${err.message || "ระบบขัดข้อง"}`);
+              }
+            }}
+          />
+        )}
 
         <EndingCollection
           isOpen={showEndingModal}

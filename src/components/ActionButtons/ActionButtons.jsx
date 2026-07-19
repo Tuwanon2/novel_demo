@@ -19,6 +19,7 @@ const ActionButtons = ({
   onBookmark,
   onLike,
   showRead = true,
+  showBookmark = true,
   showLike = true,
 }) => {
   const handleBookmark = () => {
@@ -47,13 +48,14 @@ const ActionButtons = ({
       )}
 
       {/* Secondary: Bookmark */}
-      <button
-        type="button"
-        className={`action-buttons__bookmark ${isBookmarked ? "action-buttons__bookmark--active" : ""}`}
-        onClick={handleBookmark}
-        aria-label={isBookmarked ? "ลบออกจากชั้นหนังสือ" : "เพิ่มเข้าชั้นหนังสือ"}
-        aria-pressed={isBookmarked}
-      >
+      {showBookmark && (
+        <button
+          type="button"
+          className={`action-buttons__bookmark ${isBookmarked ? "action-buttons__bookmark--active" : ""}`}
+          onClick={handleBookmark}
+          aria-label={isBookmarked ? "ลบออกจากชั้นหนังสือ" : "เพิ่มเข้าชั้นหนังสือ"}
+          aria-pressed={isBookmarked}
+        >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path
             d="M3 2h8a1 1 0 011 1v9l-4-2-4 2V3a1 1 0 011-1z"
@@ -63,7 +65,8 @@ const ActionButtons = ({
           />
         </svg>
         เพิ่มเข้าชั้นหนังสือ
-      </button>
+        </button>
+      )}
 
       {/* Secondary: Like */}
       {showLike && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom"; 
+import { useParams, useNavigate, useLocation } from "react-router-dom"; 
 import "./ReadingPage.css";
 import ReadingBreadcrumb from "../../../components/ReadingBreadcrumb/ReadingBreadcrumb";
 import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
@@ -17,6 +17,11 @@ const ReadingPage = ({
 
   const { novelId, sceneId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const searchParams = new URLSearchParams(location.search);
+  const isPreviewMode = searchParams.get("preview") === "true";
+  const previewQueryString = isPreviewMode ? `?${searchParams.toString()}` : "";
 
   const getCurrentUserId = () => {
     const userJson = localStorage.getItem("user");
@@ -321,7 +326,14 @@ const ReadingPage = ({
     }
 
     setTimeout(() => {
-      navigate(`/reading/${novelId}/${choice.to_scene_id}`);
+      const nextSearchParams = new URLSearchParams(location.search);
+      if (isPreviewMode) {
+        nextSearchParams.set("preview", "true");
+      } else {
+        nextSearchParams.delete("preview");
+      }
+      const nextQuery = nextSearchParams.toString();
+      navigate(`/reading/${novelId}/${choice.to_scene_id}${nextQuery ? `?${nextQuery}` : ""}`);
       setCurrentSceneId(choice.to_scene_id);
       setIsTransitioning(false);
       setSelectedChoiceId(null);
@@ -396,7 +408,7 @@ const ReadingPage = ({
     }
 
     setCurrentSceneId(null);
-    navigate(`/reading/${novelId}`);
+    navigate(`/reading/${novelId}${previewQueryString}`);
   };
 
   const parsePositiveInt = (value) => {
@@ -559,6 +571,37 @@ const ReadingPage = ({
   return (
     <div className={`rp rp--theme-${theme}`}>
       <div className="rp__progress-bar" style={{ width: `${readProgress}%` }} role="progressbar" />
+
+      {isPreviewMode && (
+        <div style={{
+          width: "100%",
+          background: "#eff6ff",
+          borderBottom: "1px solid #bfdbfe",
+          padding: "12px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          color: "#1e40af"
+        }}>
+          <span style={{ fontWeight: 700 }}>คุณกำลังอยู่ในโหมดทดลองอ่าน</span>
+          <button
+            type="button"
+            onClick={() => window.close()}
+            style={{
+              background: "#1d4ed8",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "999px",
+              padding: "8px 14px",
+              cursor: "pointer",
+              fontWeight: 700
+            }}
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
 
       <div className="rp__container">
         <ReadingBreadcrumb
