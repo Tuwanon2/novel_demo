@@ -6,7 +6,10 @@ import (
 	"mime/multipart"
 	"novel-be/internal/repository"
 	"path/filepath"
+<<<<<<< HEAD
 	"strings"
+=======
+>>>>>>> 6a237f06023a07c5667f7e5673ced9f1e788bc2d
 	"time"
 )
 
@@ -64,6 +67,8 @@ func (s *mediaService) UploadImage(ctx context.Context, file *multipart.FileHead
 		return "", err
 	}
 
+	contentType := file.Header.Get("Content-Type")
+
 	// 🟢 รับ URL เต็ม (http://minio:9000/...) มาส่งต่อ
 	url, err := s.mediaRepo.UploadFile(ctx, NovelImagesBucket, objectName, src, file.Size, contentType)
 	if err != nil {
@@ -81,6 +86,7 @@ func (s *mediaService) GetPresignedURL(ctx context.Context, filename string) (st
 	return s.mediaRepo.GetPresignedURL(ctx, NovelImagesBucket, filename)
 }
 
+<<<<<<< HEAD
 func isAllowedImageType(ext string, contentType string) bool {
 	ext = strings.ToLower(strings.TrimSpace(ext))
 	contentType = strings.ToLower(strings.TrimSpace(contentType))
@@ -93,4 +99,9 @@ func isAllowedImageType(ext string, contentType string) bool {
 		return true
 	}
 	return false
+=======
+func isAllowedImageType(ext string) bool {
+	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
+	return allowed[ext]
+>>>>>>> 6a237f06023a07c5667f7e5673ced9f1e788bc2d
 }
