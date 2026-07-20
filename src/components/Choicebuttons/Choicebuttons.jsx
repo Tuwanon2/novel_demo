@@ -1,6 +1,6 @@
 // src/components/ChoiceButtons/ChoiceButtons.jsx
 import React, { useState } from "react";
-import "./ChoiceButtons.css";
+import "./Choicebuttons.css";
 
 /**
  * ChoiceButtons — ปุ่มเลือกตัวเลือกท้ายตอน
