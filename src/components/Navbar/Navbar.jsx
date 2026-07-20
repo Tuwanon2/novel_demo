@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 // 🎯 🟢 นำเข้า Link, useNavigate และ useLocation เพื่อทำระบบสลับโหมดแบบไร้รอยต่อ
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import "./Navbar.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../utils/api.js";
 
 const Navbar = () => {
     const navigate = useNavigate();

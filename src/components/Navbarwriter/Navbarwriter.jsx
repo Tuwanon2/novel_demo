@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import "./Navbarwriter.css";
 import { getNovelStatusInfo } from "../../utils/novelStatus";
-
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../utils/api.js";
 
 const Navbarwriter = () => {
     const navigate = useNavigate();

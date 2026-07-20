@@ -5,8 +5,7 @@ import { useParams } from "react-router-dom";
 import "./Chaptermanagerpage.css";
 import { getNovelStatusInfo } from "../../../utils/novelStatus";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL as API_BASE } from "../../../utils/api.js";
 const getToken = () => localStorage.getItem("token");
 
 // 🕒 ฟังก์ชันแปลงเวลาแบบ Global ตัวเดียวใช้ทั้งไฟล์

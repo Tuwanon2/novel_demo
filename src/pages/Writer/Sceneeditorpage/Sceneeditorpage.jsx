@@ -11,8 +11,7 @@ import "quill/dist/quill.snow.css";
 import "./Sceneeditorpage.css";
 import Toggle from "../../../components/Toggle/Toggle";
 import EndingSettings from "../../../components/EndingSettings/EndingSettings";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../../utils/api.js";
 
 // ─────────────────────────────────────────────
 // React Quill config

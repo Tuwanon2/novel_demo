@@ -9,8 +9,7 @@ import FollowButton from "../../../components/FollowButton/FollowButton";
 import ProgressBar from "../../../components/ProgressBar/ProgressBar";
 import EndingCollection from "../../../components/EndingCollection/EndingCollection";
 import Comments from "../../../components/Comments/Comments";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../../utils/api.js";
 
 const initialNovelState = {
   id: null,

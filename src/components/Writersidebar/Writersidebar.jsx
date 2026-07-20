@@ -125,7 +125,9 @@ const WriterSidebar = ({ currentPage: currentPageProp, selectedNovelId: selected
             try {
               const token = localStorage.getItem("token");
               const headers = { Authorization: `Bearer ${token}` };
-              const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+              import { API_BASE_URL } from "../../utils/api.js";
+
+const API_BASE = API_BASE_URL;
               const chRes = await fetch(`${API_BASE}/novels/${selectedNovelId}/chapters`, { headers });
               const chData = await chRes.json();
               const chapters = chData?.data?.chapters || chData?.chapters || [];

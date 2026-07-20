@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import WriterCard from "../../../components/WriterCard/WriterCard"; // เรียกใช้ Component ย่อยที่แยกออกมา
 import "./FollowingWriters.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../../utils/api.js";
 
 function stripHTML(value) {
   if (!value || typeof value !== "string") return null;

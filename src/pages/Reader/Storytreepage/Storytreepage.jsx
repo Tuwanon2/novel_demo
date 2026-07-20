@@ -9,8 +9,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "./Storytreepage.css";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL as BASE_URL } from "../../utils/api.js";
 
 const NODE_STATUS = {
   VISITED: "visited",

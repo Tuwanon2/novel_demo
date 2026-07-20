@@ -7,8 +7,7 @@ import RestartReadingButton from "../../../components/RestartReadingButton/Resta
 import ReadingSettings from "../../../components/ReadingSettings/ReadingSettings";
 import ActionButtons from "../../../components/ActionButtons/ActionButtons";
 import Comments from "../../../components/Comments/Comments";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL as BASE_URL } from "../../utils/api.js";
 
 const ReadingPage = ({
   userId = 0,

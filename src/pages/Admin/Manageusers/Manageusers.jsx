@@ -168,6 +168,8 @@ const EditUserModal = ({ isOpen, user, onCancel }) => {
 //  Main Component
 // ─────────────────────────────────────────────
 
+import { API_BASE_URL } from "../../../utils/api.js";
+
 const Manageusers = ({ onNavigate = () => { } }) => {
   const [requests, setRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,8 +186,6 @@ const Manageusers = ({ onNavigate = () => { } }) => {
     action: '',
     userName: ''
   });
-
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
   useEffect(() => {
     const fetchRequests = async () => {

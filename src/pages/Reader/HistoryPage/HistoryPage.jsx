@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./HistoryPage.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../../utils/api.js";
 
 const STATUS_MAP = {
   reading: { label: "กำลังอ่าน", color: "#D02676", bg: "#FDF2F8", dot: "#D02676" },

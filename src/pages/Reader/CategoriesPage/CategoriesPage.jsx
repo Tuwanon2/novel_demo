@@ -5,8 +5,7 @@ import NovelCard from "../../../components/NovelCard/NovelCard";
 import CategoryCard from "../../../components/CategoryCard/CategoryCard";
 import { getNovelStatusInfo } from "../../../utils/novelStatus";
 import "./CategoriesPage.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../../utils/api.js";
 
 const categoryPalettes = [
   { name: "แฟนตาซี", icon: "🪄", background: "linear-gradient(135deg,#ffe4f0,#ffd6eb)" },

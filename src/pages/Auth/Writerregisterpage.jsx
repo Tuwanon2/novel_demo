@@ -4,8 +4,7 @@ import "./Writerregisterpage.css";
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill-new";
 import "quill/dist/quill.snow.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../utils/api.js";
 
 const STEPS = [
     { num: 1, label: "ข้อมูลส่วนตัว" },

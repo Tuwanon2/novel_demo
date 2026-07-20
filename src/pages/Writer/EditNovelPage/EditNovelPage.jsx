@@ -7,8 +7,7 @@ import CoverUpload from "../../../components/Coverupload/Coverupload";
 import Toggle from "../../../components/Toggle/Toggle";
 import { useNavigate, useParams } from "react-router-dom";
 import { getNovelStatusInfo } from "../../../utils/novelStatus";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "../../../utils/api.js";
 
 const FALLBACK_CATEGORIES = [
     "แฟนตาซี",

@@ -38,8 +38,7 @@ import WriterRegisterPage from "./pages/Auth/Writerregisterpage";
 import "./style/App.css";
 import "./style/index.css";
 import { i } from "framer-motion/client";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "./utils/api.js";
 
 // ======================================================
 // NavbarContext - ควบคุมการแสดง/ซ่อน Navbar

@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "./HomePage.css";
 import NovelCard from "../../../components/NovelCard/NovelCard";
 import { getNovelStatusInfo } from "../../../utils/novelStatus";
+import { API_BASE_URL } from "../../../utils/api.js";
 
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const HomePage = ({ onNavigate }) => {
 
 const HERO_BOOK_BG = [
   "linear-gradient(150deg,#c8f7c5,#a8e6cf)",
