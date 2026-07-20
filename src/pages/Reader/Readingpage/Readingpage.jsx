@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import "./Readingpage.css";
 import "react-quill-new/dist/quill.snow.css"; // 🟢 จุดที่ 1: นำเข้าดีไซน์การจัดหน้าของ Quill
 import ReadingBreadcrumb from "../../../components/Readingbreadcrumb/Readingbreadcrumb";
-import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
+import ChoiceButtons from "../../../components/Choicebuttons/Choicebuttons";
 import RestartReadingButton from "../../../components/RestartReadingButton/RestartReadingButton";
 import ReadingSettings from "../../../components/ReadingSettings/ReadingSettings";
 import ActionButtons from "../../../components/ActionButtons/ActionButtons";
