@@ -9,7 +9,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "./Storytreepage.css";
-import { API_BASE_URL as BASE_URL } from "../../utils/api.js";
+import { API_BASE_URL as BASE_URL } from "../../../utils/api.js";
 
 const NODE_STATUS = {
   VISITED: "visited",

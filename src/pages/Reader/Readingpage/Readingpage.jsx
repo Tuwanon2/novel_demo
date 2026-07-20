@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom"; 
-import "./ReadingPage.css";
+import "./Readingpage.css";
 import "react-quill-new/dist/quill.snow.css"; // 🟢 จุดที่ 1: นำเข้าดีไซน์การจัดหน้าของ Quill
-import ReadingBreadcrumb from "../../../components/ReadingBreadcrumb/ReadingBreadcrumb";
+import ReadingBreadcrumb from "../../../components/Readingbreadcrumb/Readingbreadcrumb";
 import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
 import RestartReadingButton from "../../../components/RestartReadingButton/RestartReadingButton";
 import ReadingSettings from "../../../components/ReadingSettings/ReadingSettings";
 import ActionButtons from "../../../components/ActionButtons/ActionButtons";
 import Comments from "../../../components/Comments/Comments";
-import { API_BASE_URL as BASE_URL } from "../../utils/api.js";
+import { API_BASE_URL as BASE_URL } from "../../../utils/api.js";
 
 const ReadingPage = ({
   userId = 0,

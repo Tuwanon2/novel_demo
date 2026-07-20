@@ -5,8 +5,6 @@ import NovelCard from "../../../components/NovelCard/NovelCard";
 import { getNovelStatusInfo } from "../../../utils/novelStatus";
 import { API_BASE_URL } from "../../../utils/api.js";
 
-const HomePage = ({ onNavigate }) => {
-
 const HERO_BOOK_BG = [
   "linear-gradient(150deg,#c8f7c5,#a8e6cf)",
   "linear-gradient(150deg,#ffd6e7,#ffb3c6)",

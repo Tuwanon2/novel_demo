@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./Writersidebar.css";
 import { mockWriterProfile } from "../../data/mockwriterdata";
+import { API_BASE_URL } from "../../utils/api.js";
 
 // เมนูหลัก (ไม่ขึ้นกับนิยายที่เลือก)
 const MAIN_MENU = [
@@ -111,9 +112,7 @@ const WriterSidebar = ({ currentPage: currentPageProp, selectedNovelId: selected
             try {
               const token = localStorage.getItem("token");
               const headers = { Authorization: `Bearer ${token}` };
-              import { API_BASE_URL } from "../../utils/api.js";
-
-const API_BASE = API_BASE_URL;
+              const API_BASE = API_BASE_URL;
               const chRes = await fetch(`${API_BASE}/novels/${selectedNovelId}/chapters`, { headers });
               const chData = await chRes.json();
               const chapters = chData?.data?.chapters || chData?.chapters || [];
