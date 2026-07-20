@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import ReactFlow, {
   Handle,
   Position,
@@ -182,13 +182,16 @@ const LegendBar = () => (
 
 // Inner component เพื่อให้สามารถเรียกใช้ useReactFlow() hook ได้อย่างถูกต้อง
 const StoryTreeInner = ({ novelId, onNavigate }) => {
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setCenter } = useReactFlow();
   const [treeData, setTreeData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedSceneId, setSelectedSceneId] = useState(null);
   const [interactionMode, setInteractionMode] = useState("select"); // select | connect | pan | add-node
   const reactflowWrapperRef = useRef(null);
+
+  // State สำหรับระบบวนค้นหาโหนดฉากที่ยังไม่ได้เชื่อมต่อ (Focus to Orphan Node)
+  const [orphanIndex, setOrphanIndex] = useState(0);
 
   // States สำหรับ Interactive Connection System
   const [connectSource, setConnectSource] = useState(null); // ฉากต้นทาง
@@ -359,11 +362,14 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
 
     uniqueNodes.forEach((node) => {
       const id = getNodeId(node);
+      const type = getNodeType(node);
+      const isStartNode = type === "start" || type === "starting";
 
       const hasIncoming = inDegree[id] > 0;
-      const hasOutgoing = adjacency[id]?.length > 0;
 
-      if (!hasIncoming && !hasOutgoing) {
+      // หากไม่ใช่โหนดจุดเริ่มต้น และไม่มีเส้นทางเชื่อมขาเข้า (No Incoming Edge)
+      // ถือว่าผู้อ่านเดินทางมาไม่ถึงฉากนี้ ให้ถูกจัดอยู่ในสถานะ "ยังไม่เชื่อมต่อ" (ORPHAN)
+      if (!isStartNode && !hasIncoming) {
         nodeStatuses[id] = WRITER_NODE_STATUS.ORPHAN;
       } else {
         nodeStatuses[id] = formatNodeStatus(node);
@@ -559,30 +565,100 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
   }, [positionedNodes, novelId, onNavigate, scenePositionMap]);
 
   const flowEdges = useMemo(() => {
-    return positionedEdges.map((e) => ({
-      id: String(e.id || `e-${e.source}-${e.target}`),
-      source: String(e.source),
-      target: String(e.target),
-      label: e.label || "",
-      type: e.type || "smoothstep",
-      data: e.data || {},
-      animated: !!e.animated,
-      interactionWidth: 20, // ขยายพื้นที่รับการคลิกเมาส์ของเส้นให้กว้างขึ้นเป็น 20px
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: "#94a3b8", // หัวลูกศรชี้ปลายทางชัดเจน
-      },
-      style: {
-        stroke: "#94a3b8", // เส้นหนาขึ้นและใช้สีที่คมชัดขึ้น
-        strokeWidth: 2,
-      }
-    }));
-  }, [positionedEdges]);
+    return positionedEdges.map((e) => {
+      const isSelected = selectedEdge && String(selectedEdge.id) === String(e.id);
+      return {
+        id: String(e.id || `e-${e.source}-${e.target}`),
+        source: String(e.source),
+        target: String(e.target),
+        label: e.label || "",
+        type: e.type || "smoothstep",
+        data: e.data || {},
+        animated: !isSelected && !!e.animated,
+        interactionWidth: 30, // ขยายพื้นที่รับการคลิกเมาส์รอบเส้นให้กว้างขึ้นเป็น 30px สะดวกต่อการกด
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: isSelected ? "#ef4444" : "#94a3b8", // สีแดงเฉพาะเส้นที่เลือกเพื่อลบ/แก้ไข
+        },
+        style: {
+          stroke: isSelected ? "#ef4444" : "#94a3b8", // สีแดงเฉพาะเส้นที่เลือก
+          strokeWidth: isSelected ? 3 : 2,
+          cursor: "pointer",
+        },
+        labelStyle: {
+          fill: isSelected ? "#dc2626" : "#1e293b",
+          fontWeight: 700,
+          fontSize: 12,
+          cursor: "pointer",
+        },
+        labelBgStyle: {
+          fill: isSelected ? "#fef2f2" : "#ffffff",
+          color: isSelected ? "#dc2626" : "#1e293b",
+          stroke: isSelected ? "#fca5a5" : "#e2e8f0",
+          strokeWidth: isSelected ? 1.5 : 1,
+          fillOpacity: 0.95,
+          rx: 8,
+          ry: 8,
+          cursor: "pointer",
+        },
+        labelBgPadding: [8, 4],
+        labelBgBorderRadius: 8,
+      };
+    });
+  }, [positionedEdges, selectedEdge]);
 
   // create editable react-flow state initialized from computed flowNodes/flowEdges
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChangeRF] = useEdgesState([]);
   const [selection, setSelection] = useState({ nodes: [], edges: [] });
+
+  // รายการโหนดที่ยังไม่ได้เชื่อมต่อ (Orphan Nodes - ทั้งโหนดไร้เส้นเชื่อม และโหนดที่มีเฉพาะขาออกแต่ไม่มีขาเข้า)
+  const orphanNodes = useMemo(() => {
+    return rfNodes.filter((n) => {
+      if (n.id === "cursor-node") return false;
+      const type = getNodeType(n.data);
+      const isStartNode = type === "start" || type === "starting";
+
+      // นับเส้นทางเชื่อมขาเข้า (Incoming Edges)
+      const hasIncoming = rfEdges.some(
+        (e) => String(e.target) === String(n.id) && e.id !== "cursor-edge"
+      );
+
+      // ถือว่ายังไม่เชื่อมต่อ ถ้าไม่ใช่จุดเริ่มต้น และ ไม่มีเส้นทางขาเข้า (hasIncoming === false)
+      return (!isStartNode && !hasIncoming) || n.data?.status === WRITER_NODE_STATUS.ORPHAN || n.data?.status === "orphan";
+    });
+  }, [rfNodes, rfEdges]);
+
+  // ฟังก์ชันวนพาผู้ใช้ซูมไปยังตำแหน่งโหนดที่ยังไม่เชื่อมต่อทีละโหนด
+  const handleFocusNextOrphan = useCallback(() => {
+    if (orphanNodes.length === 0) {
+      showToast("🎉 ยินดีด้วย! โหนดฉากทั้งหมดถูกเชื่อมต่อเรียบร้อยแล้ว", "success");
+      return;
+    }
+
+    const idx = orphanIndex % orphanNodes.length;
+    const targetNode = orphanNodes[idx];
+
+    if (targetNode) {
+      // แพนกล้องพาไปตรงกลางโหนดที่ไม่เชื่อมต่ออย่างนุ่มนวล
+      setCenter(targetNode.position.x + NODE_WIDTH / 2, targetNode.position.y + NODE_HEIGHT / 2, {
+        zoom: 1.15,
+        duration: 700,
+      });
+
+      setSelectedSceneId(targetNode.id);
+      const title = targetNode.data?.title || targetNode.data?.Title || getNodeTitle(targetNode.data);
+      const chNum = targetNode.data?.chapterNumber ?? "?";
+      const scNum = targetNode.data?.sceneNumber ?? "?";
+
+      showToast(
+        `พาไปยังฉากยังไม่เชื่อมต่อ (${idx + 1}/${orphanNodes.length}): ตอนที่ ${chNum} ฉาก ${scNum} "${title}"`,
+        "info"
+      );
+      
+      setOrphanIndex((prev) => (prev + 1) % orphanNodes.length);
+    }
+  }, [orphanNodes, orphanIndex, setCenter, showToast]);
 
   // sync when backend positions change (ซิงค์เฉพาะเมื่อ treeData หรือ novelId มีการโหลด/เปลี่ยนแปลงจากหลังบ้านจริง ป้องกัน Update Loop)
   useEffect(() => {
@@ -849,43 +925,62 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
     if (!pendingEdgeUpdate) return;
     const { oldEdge, newConnection } = pendingEdgeUpdate;
     
-    const choiceId = oldEdge.data?.choice_id ?? oldEdge.data?.id ?? oldEdge.data?.ChoiceID;
-    const oldSourceId = oldEdge.source;
-    const oldTargetId = oldEdge.target;
-    const newSourceId = newConnection.source;
-    const newTargetId = newConnection.target;
+    const choiceIdRaw = oldEdge.data?.choice_id ?? oldEdge.data?.id ?? oldEdge.data?.ChoiceID ?? oldEdge.data?.ID;
+    const choiceIdStr = normalizeId(choiceIdRaw);
+    const oldSourceId = normalizeId(oldEdge.source);
+    const oldTargetId = normalizeId(oldEdge.target);
+    const newSourceId = normalizeId(newConnection.source);
+    const newTargetId = normalizeId(newConnection.target);
     const choiceLabel = oldEdge.label || "เลือกเส้นทางนี้";
 
     const token = localStorage.getItem("token");
     const headers = { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "Content-Type": "application/json"
     };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       showToast("กำลังบันทึกการย้ายเส้น...", "info");
       
-      // ดึงฉากต้นทางเดิม
       const oldSourceRes = await axios.get(`${API_BASE_URL}/scenes/${oldSourceId}`, { headers });
       const oldSourceData = oldSourceRes.data?.data || oldSourceRes.data;
       let oldChoices = Array.isArray(oldSourceData.choices) ? oldSourceData.choices : [];
 
-      const isSourceChanged = String(oldSourceId) !== String(newSourceId);
+      const isSourceChanged = oldSourceId !== newSourceId;
 
       if (isSourceChanged) {
         // 1. ลบทางเลือกออกจากต้นทางเดิม
-        const updatedOldChoices = oldChoices.filter(c => 
-          String(c.choice_id ?? c.id) !== String(choiceId)
-        );
+        const updatedOldChoices = oldChoices.filter((c) => {
+          const cId = normalizeId(c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID);
+          const cToScene = normalizeId(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene);
+          if (choiceIdStr && cId && choiceIdStr === cId) return false;
+          if (oldTargetId && cToScene && oldTargetId === cToScene) return false;
+          return true;
+        });
+
+        const oldIsEnding = !!(oldSourceData.is_ending || oldSourceData.IsEnding);
+        const oldType = oldSourceData.type || oldSourceData.Type || "normal";
+
         const oldPayload = {
-          ...oldSourceData,
-          choices: updatedOldChoices.map(c => ({
-            choice_id: c.choice_id ?? c.id,
-            label: c.label ?? c.text ?? "",
-            text: c.label ?? c.text ?? "",
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(oldSourceData.chapter_id ?? oldSourceData.ChapterID ?? 0, 10),
+          title: (oldSourceData.title || oldSourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: oldSourceData.content || oldSourceData.Content || "",
+          x: Math.round(oldSourceData.x ?? oldSourceData.X ?? 0),
+          y: Math.round(oldSourceData.y ?? oldSourceData.Y ?? 0),
+          type: oldIsEnding ? "ending" : oldType === "ending" ? "normal" : oldType,
+          status: oldSourceData.status || oldSourceData.Status || "draft",
+          ending_title: oldIsEnding ? (oldSourceData.ending_title || "") : "",
+          ending_type: oldIsEnding ? (oldSourceData.ending_type || "") : "",
+          ending_description: oldIsEnding ? (oldSourceData.ending_description || "") : "",
+          is_ending: oldIsEnding,
+          choices: updatedOldChoices.map((c) => ({
+            ...(c.choice_id ?? c.id ? { choice_id: parseInt(c.choice_id ?? c.id, 10) } : {}),
+            label: c.label || c.text || "เลือกเส้นทางนี้",
+            text: c.label || c.text || "เลือกเส้นทางนี้",
+            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? ""),
             to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-          }))
+          })),
         };
         await axios.put(`${API_BASE_URL}/scenes/${oldSourceId}`, oldPayload, { headers });
 
@@ -901,23 +996,43 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
           targetSubScene: String(newTargetId)
         });
 
+        const newIsEnding = !!(newSourceData.is_ending || newSourceData.IsEnding);
+        const newType = newSourceData.type || newSourceData.Type || "normal";
+
         const newPayload = {
-          ...newSourceData,
-          choices: newChoices.map(c => ({
-            ...(c.choice_id ?? c.id ? { choice_id: c.choice_id ?? c.id } : {}),
-            label: c.label ?? c.text ?? "",
-            text: c.label ?? c.text ?? "",
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(newSourceData.chapter_id ?? newSourceData.ChapterID ?? 0, 10),
+          title: (newSourceData.title || newSourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: newSourceData.content || newSourceData.Content || "",
+          x: Math.round(newSourceData.x ?? newSourceData.X ?? 0),
+          y: Math.round(newSourceData.y ?? newSourceData.Y ?? 0),
+          type: newIsEnding ? "ending" : newType === "ending" ? "normal" : newType,
+          status: newSourceData.status || newSourceData.Status || "draft",
+          ending_title: newIsEnding ? (newSourceData.ending_title || "") : "",
+          ending_type: newIsEnding ? (newSourceData.ending_type || "") : "",
+          ending_description: newIsEnding ? (newSourceData.ending_description || "") : "",
+          is_ending: newIsEnding,
+          choices: newChoices.map((c) => ({
+            ...(c.choice_id ?? c.id ? { choice_id: parseInt(c.choice_id ?? c.id, 10) } : {}),
+            label: c.label || c.text || "เลือกเส้นทางนี้",
+            text: c.label || c.text || "เลือกเส้นทางนี้",
+            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? ""),
             to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-          }))
+          })),
         };
         await axios.put(`${API_BASE_URL}/scenes/${newSourceId}`, newPayload, { headers });
       } else {
         // ต้นทางเดิม แต่เปลี่ยนปลายทาง
-        const updatedChoices = oldChoices.map(c => {
-          if (String(c.choice_id ?? c.id) === String(choiceId)) {
+        let matched = false;
+        const updatedChoices = oldChoices.map((c) => {
+          const cId = normalizeId(c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID);
+          const cToScene = normalizeId(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene);
+          if ((choiceIdStr && cId && choiceIdStr === cId) || (!matched && oldTargetId && cToScene && oldTargetId === cToScene)) {
+            matched = true;
             return {
               ...c,
+              label: choiceLabel,
+              text: choiceLabel,
               to_scene_id: parseInt(newTargetId, 10),
               targetSubScene: String(newTargetId)
             };
@@ -925,18 +1040,55 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
           return c;
         });
 
+        if (!matched) {
+          updatedChoices.push({
+            label: choiceLabel,
+            text: choiceLabel,
+            to_scene_id: parseInt(newTargetId, 10),
+            targetSubScene: String(newTargetId)
+          });
+        }
+
+        const oldIsEnding = !!(oldSourceData.is_ending || oldSourceData.IsEnding);
+        const oldType = oldSourceData.type || oldSourceData.Type || "normal";
+
         const payload = {
-          ...oldSourceData,
-          choices: updatedChoices.map(c => ({
-            choice_id: c.choice_id ?? c.id,
-            label: c.label ?? c.text ?? "",
-            text: c.label ?? c.text ?? "",
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(oldSourceData.chapter_id ?? oldSourceData.ChapterID ?? 0, 10),
+          title: (oldSourceData.title || oldSourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: oldSourceData.content || oldSourceData.Content || "",
+          x: Math.round(oldSourceData.x ?? oldSourceData.X ?? 0),
+          y: Math.round(oldSourceData.y ?? oldSourceData.Y ?? 0),
+          type: oldIsEnding ? "ending" : oldType === "ending" ? "normal" : oldType,
+          status: oldSourceData.status || oldSourceData.Status || "draft",
+          ending_title: oldIsEnding ? (oldSourceData.ending_title || "") : "",
+          ending_type: oldIsEnding ? (oldSourceData.ending_type || "") : "",
+          ending_description: oldIsEnding ? (oldSourceData.ending_description || "") : "",
+          is_ending: oldIsEnding,
+          choices: updatedChoices.map((c) => ({
+            ...(c.choice_id ?? c.id ? { choice_id: parseInt(c.choice_id ?? c.id, 10) } : {}),
+            label: c.label || c.text || "เลือกเส้นทางนี้",
+            text: c.label || c.text || "เลือกเส้นทางนี้",
+            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? ""),
             to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-          }))
+          })),
         };
         await axios.put(`${API_BASE_URL}/scenes/${oldSourceId}`, payload, { headers });
       }
+
+      setRfEdges((eds) =>
+        eds.map((e) => {
+          if (e.id === oldEdge.id) {
+            return {
+              ...e,
+              source: String(newSourceId),
+              target: String(newTargetId),
+              label: choiceLabel,
+            };
+          }
+          return e;
+        })
+      );
 
       showToast("ย้ายจุดเชื่อมต่อสำเร็จแล้ว", "success");
       await fetchStoryTreeAndChapters();
@@ -952,18 +1104,29 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
 
   const handleUpdateConnection = async () => {
     if (!selectedEdge) return;
-    const choiceId = selectedEdge.data?.choice_id ?? selectedEdge.data?.id ?? selectedEdge.data?.ChoiceID;
-    const oldSourceId = selectedEdge.source;
-    const oldTargetId = selectedEdge.target;
-    
-    const isSourceChanged = String(oldSourceId) !== String(editEdgeSource);
-    const isTargetOrLabelChanged = String(oldTargetId) !== String(editEdgeTarget) || editEdgeLabel !== (selectedEdge.label || "");
+
+    const choiceIdRaw = selectedEdge.data?.ID ?? 
+                        selectedEdge.data?.id ?? 
+                        selectedEdge.data?.choice_id ?? 
+                        selectedEdge.data?.ChoiceID ?? 
+                        selectedEdge.data?.choiceId ?? 
+                        selectedEdge.id;
+                        
+    const choiceIdStr = normalizeId(choiceIdRaw);
+    const oldSourceId = normalizeId(selectedEdge.source);
+    const oldTargetId = normalizeId(selectedEdge.target);
+    const newSourceId = normalizeId(editEdgeSource);
+    const newTargetId = normalizeId(editEdgeTarget);
+    const newLabel = (editEdgeLabel || "").trim();
+
+    const isSourceChanged = oldSourceId !== newSourceId;
+    const isTargetOrLabelChanged = oldTargetId !== newTargetId || newLabel !== (selectedEdge.label || "");
 
     const token = localStorage.getItem("token");
     const headers = { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "Content-Type": "application/json"
     };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       showToast("กำลังบันทึกการเปลี่ยนแปลง...", "info");
@@ -977,79 +1140,169 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
       if (isSourceChanged) {
         // กรณีเปลี่ยนต้นทาง:
         // 1. ลบออกจากต้นทางเดิม
-        const updatedOldChoices = oldChoices.filter(c => 
-          String(c.choice_id ?? c.id) !== String(choiceId)
-        );
+        const updatedOldChoices = oldChoices.filter((c) => {
+          const cId = normalizeId(c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID);
+          const cToScene = normalizeId(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene);
+          if (choiceIdStr && cId && choiceIdStr === cId) return false;
+          if (oldTargetId && cToScene && oldTargetId === cToScene) return false;
+          return true;
+        });
+
+        const oldIsEnding = !!(oldSourceData.is_ending || oldSourceData.IsEnding);
+        const oldType = oldSourceData.type || oldSourceData.Type || "normal";
         
         const oldPayload = {
-          ...oldSourceData,
-          choices: updatedOldChoices.map(c => ({
-            choice_id: c.choice_id ?? c.id,
-            label: c.label ?? c.text ?? "",
-            text: c.label ?? c.text ?? "",
-            to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-          }))
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(oldSourceData.chapter_id ?? oldSourceData.ChapterID ?? 0, 10),
+          title: (oldSourceData.title || oldSourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: oldSourceData.content || oldSourceData.Content || "",
+          x: Math.round(oldSourceData.x ?? oldSourceData.X ?? 0),
+          y: Math.round(oldSourceData.y ?? oldSourceData.Y ?? 0),
+          type: oldIsEnding ? "ending" : oldType === "ending" ? "normal" : oldType,
+          status: oldSourceData.status || oldSourceData.Status || "draft",
+          ending_title: oldIsEnding ? (oldSourceData.ending_title || "") : "",
+          ending_type: oldIsEnding ? (oldSourceData.ending_type || "") : "",
+          ending_description: oldIsEnding ? (oldSourceData.ending_description || "") : "",
+          is_ending: oldIsEnding,
+          choices: updatedOldChoices.map((c) => {
+            const cId = c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID;
+            const targetStr = String(c.targetSubScene ?? c.to_scene_id ?? c.toSceneId ?? "");
+            const toSceneIdCandidate = parseInt(targetStr, 10);
+            return {
+              ...(cId && !String(cId).startsWith("choice-new-") && !isNaN(Number(cId)) ? { choice_id: parseInt(String(cId), 10) } : {}),
+              label: c.label || c.text || "เลือกเส้นทางนี้",
+              text: c.label || c.text || "เลือกเส้นทางนี้",
+              targetSubScene: targetStr,
+              to_scene_id: Number.isNaN(toSceneIdCandidate) ? 0 : toSceneIdCandidate,
+            };
+          })
         };
         await axios.put(`${API_BASE_URL}/scenes/${oldSourceId}`, oldPayload, { headers });
 
         // 2. ไปเพิ่มในต้นทางใหม่
-        const newSourceRes = await axios.get(`${API_BASE_URL}/scenes/${editEdgeSource}`, { headers });
+        const newSourceRes = await axios.get(`${API_BASE_URL}/scenes/${newSourceId}`, { headers });
         const newSourceData = newSourceRes.data?.data || newSourceRes.data;
         let newChoices = Array.isArray(newSourceData.choices) ? newSourceData.choices : [];
         
         newChoices.push({
-          label: editEdgeLabel || "เลือกเส้นทางนี้",
-          text: editEdgeLabel || "เลือกเส้นทางนี้",
-          to_scene_id: parseInt(editEdgeTarget, 10),
-          targetSubScene: String(editEdgeTarget)
+          label: newLabel || "เลือกเส้นทางนี้",
+          text: newLabel || "เลือกเส้นทางนี้",
+          to_scene_id: parseInt(newTargetId, 10),
+          targetSubScene: String(newTargetId)
         });
 
+        const newIsEnding = !!(newSourceData.is_ending || newSourceData.IsEnding);
+        const newType = newSourceData.type || newSourceData.Type || "normal";
+
         const newPayload = {
-          ...newSourceData,
-          choices: newChoices.map(c => ({
-            ...(c.choice_id ?? c.id ? { choice_id: c.choice_id ?? c.id } : {}),
-            label: c.label ?? c.text ?? "",
-            text: c.label ?? c.text ?? "",
-            to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-          }))
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(newSourceData.chapter_id ?? newSourceData.ChapterID ?? 0, 10),
+          title: (newSourceData.title || newSourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: newSourceData.content || newSourceData.Content || "",
+          x: Math.round(newSourceData.x ?? newSourceData.X ?? 0),
+          y: Math.round(newSourceData.y ?? newSourceData.Y ?? 0),
+          type: newIsEnding ? "ending" : newType === "ending" ? "normal" : newType,
+          status: newSourceData.status || newSourceData.Status || "draft",
+          ending_title: newIsEnding ? (newSourceData.ending_title || "") : "",
+          ending_type: newIsEnding ? (newSourceData.ending_type || "") : "",
+          ending_description: newIsEnding ? (newSourceData.ending_description || "") : "",
+          is_ending: newIsEnding,
+          choices: newChoices.map((c) => {
+            const cId = c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID;
+            const targetStr = String(c.targetSubScene ?? c.to_scene_id ?? c.toSceneId ?? "");
+            const toSceneIdCandidate = parseInt(targetStr, 10);
+            return {
+              ...(cId && !String(cId).startsWith("choice-new-") && !isNaN(Number(cId)) ? { choice_id: parseInt(String(cId), 10) } : {}),
+              label: c.label || c.text || "เลือกเส้นทางนี้",
+              text: c.label || c.text || "เลือกเส้นทางนี้",
+              targetSubScene: targetStr,
+              to_scene_id: Number.isNaN(toSceneIdCandidate) ? 0 : toSceneIdCandidate,
+            };
+          })
         };
-        await axios.put(`${API_BASE_URL}/scenes/${editEdgeSource}`, newPayload, { headers });
+        await axios.put(`${API_BASE_URL}/scenes/${newSourceId}`, newPayload, { headers });
         
       } else if (isTargetOrLabelChanged) {
         // กรณีไม่เปลี่ยนต้นทาง แต่เปลี่ยนปลายทางหรือข้อความ
-        const updatedChoices = oldChoices.map(c => {
-          if (String(c.choice_id ?? c.id) === String(choiceId)) {
+        let matched = false;
+        const updatedChoices = oldChoices.map((c) => {
+          const cId = normalizeId(c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID);
+          const cToScene = normalizeId(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene);
+          if ((choiceIdStr && cId && choiceIdStr === cId) || (!matched && oldTargetId && cToScene && oldTargetId === cToScene)) {
+            matched = true;
             return {
               ...c,
-              label: editEdgeLabel,
-              text: editEdgeLabel,
-              to_scene_id: parseInt(editEdgeTarget, 10),
-              targetSubScene: String(editEdgeTarget)
+              label: newLabel || "เลือกเส้นทางนี้",
+              text: newLabel || "เลือกเส้นทางนี้",
+              to_scene_id: parseInt(newTargetId, 10),
+              targetSubScene: String(newTargetId)
             };
           }
           return c;
         });
 
+        if (!matched) {
+          updatedChoices.push({
+            label: newLabel || "เลือกเส้นทางนี้",
+            text: newLabel || "เลือกเส้นทางนี้",
+            to_scene_id: parseInt(newTargetId, 10),
+            targetSubScene: String(newTargetId)
+          });
+        }
+
+        const oldIsEnding = !!(oldSourceData.is_ending || oldSourceData.IsEnding);
+        const oldType = oldSourceData.type || oldSourceData.Type || "normal";
+
         const payload = {
-          ...oldSourceData,
-          choices: updatedChoices.map(c => ({
-            choice_id: c.choice_id ?? c.id,
-            label: c.label ?? c.text ?? "",
-            text: c.label ?? c.text ?? "",
-            to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-            targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-          }))
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(oldSourceData.chapter_id ?? oldSourceData.ChapterID ?? 0, 10),
+          title: (oldSourceData.title || oldSourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: oldSourceData.content || oldSourceData.Content || "",
+          x: Math.round(oldSourceData.x ?? oldSourceData.X ?? 0),
+          y: Math.round(oldSourceData.y ?? oldSourceData.Y ?? 0),
+          type: oldIsEnding ? "ending" : oldType === "ending" ? "normal" : oldType,
+          status: oldSourceData.status || oldSourceData.Status || "draft",
+          ending_title: oldIsEnding ? (oldSourceData.ending_title || "") : "",
+          ending_type: oldIsEnding ? (oldSourceData.ending_type || "") : "",
+          ending_description: oldIsEnding ? (oldSourceData.ending_description || "") : "",
+          is_ending: oldIsEnding,
+          choices: updatedChoices.map((c) => {
+            const cId = c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID;
+            const targetStr = String(c.targetSubScene ?? c.to_scene_id ?? c.toSceneId ?? "");
+            const toSceneIdCandidate = parseInt(targetStr, 10);
+            return {
+              ...(cId && !String(cId).startsWith("choice-new-") && !isNaN(Number(cId)) ? { choice_id: parseInt(String(cId), 10) } : {}),
+              label: c.label || c.text || "เลือกเส้นทางนี้",
+              text: c.label || c.text || "เลือกเส้นทางนี้",
+              targetSubScene: targetStr,
+              to_scene_id: Number.isNaN(toSceneIdCandidate) ? 0 : toSceneIdCandidate,
+            };
+          })
         };
         await axios.put(`${API_BASE_URL}/scenes/${oldSourceId}`, payload, { headers });
       }
+
+      // อัปเดต React Flow state ฝั่ง Frontend ทันที
+      setRfEdges((eds) =>
+        eds.map((e) => {
+          if (e.id === selectedEdge.id) {
+            return {
+              ...e,
+              source: String(newSourceId),
+              target: String(newTargetId),
+              label: newLabel || "",
+            };
+          }
+          return e;
+        })
+      );
 
       showToast("แก้ไขเส้นทางเลือกสำเร็จแล้ว", "success");
       await fetchStoryTreeAndChapters();
       window.dispatchEvent(new Event("novel-data-updated"));
       setShowEdgeModal(false);
       setSelectedEdge(null);
+      changeMode("select");
     } catch (err) {
       console.error("Update connection error:", err);
       showToast("ไม่สามารถบันทึกการแก้ไขเส้นได้", "warn");
@@ -1058,48 +1311,115 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
 
   const handleDeleteConnection = async () => {
     if (!selectedEdge) return;
-    const choiceId = selectedEdge.data?.choice_id ?? selectedEdge.data?.id ?? selectedEdge.data?.ChoiceID;
+    
+    // ดึง Choice ID จากทั้ง selectedEdge.data และ selectedEdge
+    const rawChoiceId = selectedEdge.data?.ID ?? 
+                        selectedEdge.data?.id ?? 
+                        selectedEdge.data?.choice_id ?? 
+                        selectedEdge.data?.ChoiceID ?? 
+                        selectedEdge.data?.choiceId ?? 
+                        selectedEdge.id;
+                        
+    const choiceIdStr = normalizeId(rawChoiceId);
+    const selectedEdgeId = selectedEdge.id;
     const sourceId = selectedEdge.source;
+    const targetId = selectedEdge.target;
+    const edgeLabelText = (selectedEdge.label || selectedEdge.data?.label || selectedEdge.data?.text || "").trim();
 
     const token = localStorage.getItem("token");
     const headers = { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "Content-Type": "application/json"
     };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
       showToast("กำลังลบทางเลือก...", "info");
       
-      const sourceRes = await axios.get(`${API_BASE_URL}/scenes/${sourceId}`, { headers });
-      const sourceData = sourceRes.data?.data || sourceRes.data;
-      
-      let choicesList = Array.isArray(sourceData.choices) ? sourceData.choices : [];
-      const updatedChoices = choicesList.filter(c => 
-        String(c.choice_id ?? c.id) !== String(choiceId)
-      );
-      
-      const payload = {
-        ...sourceData,
-        choices: updatedChoices.map(c => ({
-          choice_id: c.choice_id ?? c.id,
-          label: c.label ?? c.text ?? "",
-          text: c.label ?? c.text ?? "",
-          to_scene_id: parseInt(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene ?? "0", 10),
-          targetSubScene: String(c.targetSubScene ?? c.to_scene_id ?? "")
-        }))
-      };
+      let isSuccess = false;
 
-      await axios.put(`${API_BASE_URL}/scenes/${sourceId}`, payload, { headers });
-      
-      showToast("ลบเส้นทางเลือกสำเร็จแล้ว", "success");
+      // 1. ลองยิง DELETE /choices/:id โดยตรงก่อน (เหมือนใน ChapterManagerPage.jsx)
+      if (rawChoiceId && !String(rawChoiceId).startsWith("edge-") && !isNaN(Number(rawChoiceId))) {
+        try {
+          const res = await axios.delete(`${API_BASE_URL}/choices/${rawChoiceId}`, { headers });
+          if (res.status === 200 || res.status === 204 || res.data?.status === "success") {
+            isSuccess = true;
+          }
+        } catch (e) {
+          console.warn("Direct choice DELETE endpoint failed, falling back to scene update...", e);
+        }
+      }
+
+      // 2. ถ้ายิง DELETE /choices/:id ไม่ผ่าน ให้ไปสกัดลบออกจากฉากต้นทาง (PUT /scenes/:sourceId)
+      if (!isSuccess) {
+        const sourceRes = await axios.get(`${API_BASE_URL}/scenes/${sourceId}`, { headers });
+        const sourceData = sourceRes.data?.data || sourceRes.data;
+        
+        let choicesList = Array.isArray(sourceData.choices) ? sourceData.choices : [];
+        const updatedChoices = choicesList.filter((c) => {
+          const cId = normalizeId(c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID);
+          const cToSceneId = normalizeId(c.to_scene_id ?? c.toSceneId ?? c.targetSubScene);
+          const cText = (c.label ?? c.text ?? "").trim();
+
+          if (choiceIdStr && cId && choiceIdStr === cId) return false;
+          if (targetId && cToSceneId && targetId === cToSceneId) {
+            if (!choiceIdStr || choiceIdStr.startsWith("edge-") || cId === choiceIdStr || !edgeLabelText || cText === edgeLabelText) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        const currentIsEnding = !!(sourceData.is_ending || sourceData.IsEnding);
+        const sceneTypeVal = sourceData.type || sourceData.Type || "normal";
+
+        const payload = {
+          novel_id: parseInt(novelId, 10),
+          chapter_id: parseInt(sourceData.chapter_id ?? sourceData.ChapterID ?? 0, 10),
+          title: (sourceData.title || sourceData.Title || "ฉากไม่มีชื่อ").trim(),
+          content: sourceData.content || sourceData.Content || "",
+          x: Math.round(sourceData.x ?? sourceData.X ?? 0),
+          y: Math.round(sourceData.y ?? sourceData.Y ?? 0),
+          type: currentIsEnding ? "ending" : sceneTypeVal === "ending" ? "normal" : sceneTypeVal,
+          status: sourceData.status || sourceData.Status || "draft",
+          ending_title: currentIsEnding ? (sourceData.ending_title || "") : "",
+          ending_type: currentIsEnding ? (sourceData.ending_type || "") : "",
+          ending_description: currentIsEnding ? (sourceData.ending_description || "") : "",
+          is_ending: currentIsEnding,
+          choices: updatedChoices.map((c) => {
+            const cId = c.choice_id ?? c.id ?? c.ChoiceID ?? c.ID;
+            const targetStr = String(c.targetSubScene ?? c.to_scene_id ?? c.toSceneId ?? "");
+            const toSceneIdCandidate = parseInt(targetStr, 10);
+
+            return {
+              ...(cId && !String(cId).startsWith("choice-new-") ? { choice_id: parseInt(String(cId), 10) } : {}),
+              label: c.label || c.text || "เลือกเส้นทางนี้",
+              text: c.label || c.text || "เลือกเส้นทางนี้",
+              targetSubScene: targetStr,
+              to_scene_id: Number.isNaN(toSceneIdCandidate) ? 0 : toSceneIdCandidate,
+            };
+          }),
+        };
+
+        await axios.put(`${API_BASE_URL}/scenes/${sourceId}`, payload, { headers });
+      }
+
+      // 3. ลบเส้นทางเลือกออกจาก React Flow State ทันทีในฝั่ง Client
+      setRfEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId && e.id !== choiceIdStr));
+
+      showToast("ลบทางเลือกสำเร็จเรียบร้อยแล้ว", "success");
+
+      // 4. โหลดผังเรื่องใหม่และกระจาย Event สั่งให้อัปเดตทุกหน้า (รวมถึง SceneEditor และ ChapterManager)
       await fetchStoryTreeAndChapters();
       window.dispatchEvent(new Event("novel-data-updated"));
+
+    } catch (err) {
+      console.error("Delete connection error:", err);
+      showToast("เกิดข้อผิดพลาดในการลบทางเลือก", "warn");
+    } finally {
       setShowDeleteChoiceConfirm(false);
       setShowEdgeModal(false);
       setSelectedEdge(null);
-    } catch (err) {
-      console.error("Delete connection error:", err);
-      showToast("ไม่สามารถลบเส้นทางเลือกได้", "warn");
+      changeMode("select"); // เปลี่ยนโหมดกลับเป็น select เสมอหลังลบเสร็จ
     }
   };
 
@@ -1519,13 +1839,21 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
               </div>
             </div>
 
-            <div className="wst-sidebar__stat-card">
+            <div 
+              className="wst-sidebar__stat-card"
+              onClick={handleFocusNextOrphan}
+              title="คลิกเพื่อแพนกล้องซูมพาไปยังฉากที่ยังไม่เชื่อมต่อโหนดถัดไป"
+              style={{ cursor: orphanNodes.length > 0 ? 'pointer' : 'default', transition: 'all 0.2s ease' }}
+            >
               <div className="wst-sidebar__stat-header" style={{ color: "#db2777" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.84 12.25a4.5 4.5 0 0 0-6.36-6.36l-1.5 1.5M13.02 16.61l-1.5 1.5a4.5 4.5 0 0 1-6.36-6.36"/><line x1="8" y1="16" x2="16" y2="8"/></svg>
                 <span>ยังไม่เชื่อม</span>
               </div>
-              <div className="wst-sidebar__stat-value" style={{ color: "#db2777" }}>
-                {stats?.VisitedScenes ?? stats?.visited_scenes ?? 0}
+              <div className="wst-sidebar__stat-value" style={{ color: "#db2777", display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>{orphanNodes.length}</span>
+                {orphanNodes.length > 0 && (
+                  <span style={{ fontSize: '11px', background: '#fce7f3', color: '#be185d', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>🔍 ซูมหา</span>
+                )}
               </div>
             </div>
 
@@ -1660,6 +1988,23 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M10 11v6M14 11v6M5 6l1 13a1 1 0 001 1h10a1 1 0 001-1l1-13"/></svg>
                     <span>ลบ</span>
                   </button>
+
+                  {orphanNodes.length > 0 && (
+                    <button 
+                      title="ค้นหาและซูมพาไปยังฉากที่ยังไม่ได้เชื่อมต่อทีละโหนด" 
+                      className="wst-toolbar-btn"
+                      onClick={handleFocusNextOrphan}
+                      style={{
+                        background: '#fce7f3',
+                        color: '#be185d',
+                        borderColor: '#fbcfe8',
+                        fontWeight: '700'
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      <span>หาโหนดว่าง ({orphanNodes.length})</span>
+                    </button>
+                  )}
                 </div>
 
                 <ReactFlow
@@ -1668,6 +2013,7 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
                   nodeTypes={nodeTypes}
                   onNodeClick={handleNodeClick}
                   onNodeDoubleClick={handleNodeDoubleClick}
+                  onEdgeClick={handleEdgeClick}
                   onNodesChange={onNodesChangeWrapper}
                   onEdgesChange={onEdgesChangeWrapper}
                   onConnect={onConnect}
@@ -2032,26 +2378,33 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
         }}>
           <div style={{
             backgroundColor: '#fff', padding: '28px', borderRadius: '24px',
-            width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(239, 68, 68, 0.15)',
-            fontFamily: '"Outfit", "Sarabun", sans-serif', border: '1px solid #fecaca'
+            width: '100%', maxWidth: '440px', boxShadow: '0 20px 50px rgba(239, 68, 68, 0.18)',
+            fontFamily: '"Outfit", "Sarabun", sans-serif', border: '1px solid #fecaca',
+            textAlign: 'center'
           }}>
-            <h3 style={{ marginTop: 0, color: '#dc2626', fontSize: '18px', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              ⚠️ ยืนยันการลบทางเลือก
+            <div style={{ fontSize: '44px', marginBottom: '12px' }}>🗑️</div>
+            <h3 style={{ marginTop: 0, color: '#dc2626', fontSize: '19px', fontWeight: '800', marginBottom: '12px' }}>
+              ยืนยันการลบทางเลือก
             </h3>
-            <p style={{ color: '#4b5563', fontSize: '14.5px', marginBottom: '24px', lineHeight: '1.6' }}>
-              คุณต้องการลบเส้นทางเลือก <strong>"{selectedEdge.label || "เลือกเส้นทางนี้"}"</strong> ออกจากระบบใช่หรือไม่? ฉากที่อยู่ถัดไปจะไม่ถูกลบ แต่ความเชื่อมโยงจะขาดหายไป
+            <p style={{ color: '#4b5563', fontSize: '14.5px', marginBottom: '20px', lineHeight: '1.6' }}>
+              คุณต้องการลบทางเลือก <strong style={{ color: '#dc2626' }}>"{selectedEdge.label || "เลือกเส้นทางนี้"}"</strong> ออกจากระบบใช่หรือไม่?
             </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ background: '#fef2f2', padding: '12px 16px', borderRadius: '12px', border: '1px solid #fee2e2', marginBottom: '24px', fontSize: '13px', color: '#991b1b', textAlign: 'left' }}>
+              ℹ️ เส้นเชื่อมโยงของทางเลือกนี้จะหายไปจากผังเรื่องทันที โดยฉากปลายทางจะไม่ถูกลบ
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
               <button 
                 onClick={() => {
                   setShowDeleteChoiceConfirm(false);
                   setSelectedEdge(null);
-                  fetchStoryTreeAndChapters();
+                  if (interactionMode === "delete") {
+                    changeMode("select");
+                  }
                 }}
                 style={{
-                  padding: '10px 20px', borderRadius: '20px', border: '1px solid #d1d5db',
+                  padding: '10px 22px', borderRadius: '20px', border: '1px solid #d1d5db',
                   background: '#ffffff', color: '#4b5563', cursor: 'pointer',
-                  fontSize: '14px', fontWeight: '600'
+                  fontSize: '14px', fontWeight: '600', transition: 'all 0.2s'
                 }}
               >
                 ยกเลิก
@@ -2063,7 +2416,7 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
                   background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
                   color: '#ffffff', cursor: 'pointer',
                   fontSize: '14px', fontWeight: '700',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)'
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', transition: 'all 0.2s'
                 }}
               >
                 ยืนยันการลบ
