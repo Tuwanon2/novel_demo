@@ -65,7 +65,7 @@ const Navbar = () => {
         setIsLoadingUser(true);
         try {
             console.log("🛰️ Fetching user info from /api/users...");
-            const res = await fetch('/api/users', {
+            const res = await fetch(`${API_BASE_URL}/api/users`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,

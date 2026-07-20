@@ -156,7 +156,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
     setErrors({});
     try {
       console.log("🛰️ Fetching Login API...", { email, passwordLength: password.length });
-      const res = await fetch('/api/login', {
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

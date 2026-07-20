@@ -8,7 +8,7 @@ import ReadingSettings from "../../../components/ReadingSettings/ReadingSettings
 import ActionButtons from "../../../components/ActionButtons/ActionButtons";
 import Comments from "../../../components/Comments/Comments";
 
-const BASE_URL = "http://localhost:8080"; 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const ReadingPage = ({
   userId = 0,

@@ -185,13 +185,15 @@ const Manageusers = ({ onNavigate = () => { } }) => {
     userName: ''
   });
 
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
   useEffect(() => {
     const fetchRequests = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('/api/admin/writers/requests', {
+        const res = await fetch(`${API_BASE_URL}/api/admin/writers/requests`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -217,7 +219,7 @@ const Manageusers = ({ onNavigate = () => { } }) => {
   const handleApproveWriter = async (writerId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/admin/writers/approve?writer_id=${writerId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/writers/approve?writer_id=${writerId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -239,7 +241,7 @@ const Manageusers = ({ onNavigate = () => { } }) => {
   const handleRejectWriter = async (writerId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/admin/writers/reject?writer_id=${writerId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/writers/reject?writer_id=${writerId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
