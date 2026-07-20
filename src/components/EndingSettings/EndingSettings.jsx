@@ -6,28 +6,28 @@ const TYPES = [
     value: "good",
     icon: "🌸",
     label: "Good Ending",
-    hint: "ตอนจบที่ตัวละครได้รับผลลัพธ์ที่ดี",
+    hint: "ฉากจบที่ตัวละครมีความสุขหรือประสบความสำเร็จ",
     className: "good",
   },
   {
     value: "bad",
     icon: "💀",
     label: "Bad Ending",
-    hint: "ตอนจบที่ตัวละครหรือโลกเสียหาย",
+    hint: "ฉากจบที่หม่นหมอง ตัวละครพบกับความสูญเสียหรือความล้มเหลว",
     className: "bad",
   },
   {
     value: "true",
     icon: "👑",
     label: "True Ending",
-    hint: "ตอนจบที่เปิดเผยความจริงทั้งหมด",
+    hint: "ฉากจบที่แท้จริง เปิดเผยปมและบทสรุปทั้งหมดของเรื่องราว",
     className: "true",
   },
   {
     value: "secret",
     icon: "🌙",
     label: "Secret Ending",
-    hint: "ตอนจบลับที่ต้องค้นหาเส้นทางพิเศษ",
+    hint: "ฉากจบลับที่ซ่อนอยู่หลังตัวเลือกพิเศษ",
     className: "secret",
   },
 ];
@@ -47,7 +47,9 @@ export default function EndingSettings({
   onSave,
   onClose,
 }) {
-  const [descriptionEnabled, setDescriptionEnabled] = React.useState(Boolean(endingDescriptionEnabled || endingDescription));
+  const [descriptionEnabled, setDescriptionEnabled] = React.useState(
+    Boolean(endingDescriptionEnabled || endingDescription)
+  );
 
   React.useEffect(() => {
     setDescriptionEnabled(Boolean(endingDescriptionEnabled || endingDescription));
@@ -58,36 +60,61 @@ export default function EndingSettings({
     setDescriptionEnabled(next);
     onToggleEndingDescriptionEnabled?.(next);
   };
+
   const current = TYPES.find((t) => t.value === endingType) || TYPES[0];
   const previewTitle = endingTitle.trim() || sceneTitle;
 
   return (
     <div className="ending-page">
       <div className="ending-card">
+        {/* 1. Header & Main Toggle */}
         <div className="ending-header">
-          <div>
-            <h3>🏁 Ending Scene</h3>
-            <p>
-              เมื่อผู้อ่านมาถึงฉากนี้ ระบบจะบันทึกตอนจบและเพิ่มลงใน
-              Ending Collection
-            </p>
+          <div className="ending-header-text">
+            <h3>🏁 ฉากจบ</h3>
+            <p>บันทึกฉากนี้ลงในคลังฉากจบของนักอ่าน</p>
           </div>
 
-          <label className="switch">
-            <input
-              type="checkbox"
-              checked={isEnding}
-              onChange={() => onToggleEnding?.(!isEnding)}
-            />
-            <span className="slider"></span>
-          </label>
+          <div className="header-toggle">
+            <span className="header-toggle-label">ใช้เป็นฉากจบ</span>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={isEnding}
+                onChange={() => onToggleEnding?.(!isEnding)}
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
         </div>
 
         {isEnding && (
           <>
+            {/* 2. Preview - ลำดับและดีไซน์แบบเดียวกับหน้าคลังฉากจบ */}
             <div className="section">
-              <label>ประเภทตอนจบ</label>
+              <label>ตัวอย่างคลังฉากจบ</label>
+              
+              <div className={`preview-card ${current.className}`}>
+                <div className="preview-icon">{current.icon}</div>
+                
+                <div className="badge">{current.label}</div>
 
+                <h4>{previewTitle}</h4>
+
+                <p className="preview-description">
+                  {descriptionEnabled
+                    ? endingDescription.trim() || "ยังไม่มีคำอธิบายตอนจบ"
+                    : "คำอธิบายตอนจบจะไม่แสดงหากปิดการใช้งาน"}
+                </p>
+
+                <small>
+                  จะแสดงใน คลังฉากจบ หลังจากนักอ่านค้นพบฉากจบนี้
+                </small>
+              </div>
+            </div>
+
+            {/* 3. ประเภทฉากจบ */}
+            <div className="section">
+              <label>ประเภทฉากจบ</label>
               <div className="type-grid">
                 {TYPES.map((item) => (
                   <button
@@ -103,18 +130,15 @@ export default function EndingSettings({
                   </button>
                 ))}
               </div>
-
               <div className="type-hint">{current.hint}</div>
             </div>
 
+            {/* 4. ชื่อฉากจบ */}
             <div className="section">
               <label>
-                ชื่อตอนจบ
-                <span className="optional">
-                  (ไม่กรอก = ใช้ชื่อ Scene)
-                </span>
+                ชื่อฉากจบ
+                <span className="optional">(เว้นว่างเพื่อใช้ชื่อฉาก)</span>
               </label>
-
               <input
                 className="input"
                 value={endingTitle}
@@ -123,63 +147,40 @@ export default function EndingSettings({
               />
             </div>
 
-            <div className="section section--toggle-row">
-              <div>
-                <label>คำอธิบายตอนจบ</label>
-                <p className="section__hint">เลือกว่าต้องการเพิ่มคำอธิบายตอนจบหรือไม่</p>
+            {/* 5. รายละเอียดฉากจบ & Toggle */}
+            <div className="section toggle-row">
+              <div className="toggle-row-text">
+                <label>รายละเอียดฉากจบ</label>
+                <p>แสดงข้อความเพิ่มเติมหลังปลดล็อก</p>
               </div>
-              <label className="switch switch--small">
-                <input type="checkbox" checked={descriptionEnabled} onChange={handleToggleDescription} />
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={descriptionEnabled}
+                  onChange={handleToggleDescription}
+                />
                 <span className="slider" />
               </label>
             </div>
 
-            {descriptionEnabled ? (
-              <div className="section">
+            {descriptionEnabled && (
+              <div className="section no-border-top">
                 <textarea
                   className="input"
-                  style={{ minHeight: "96px", resize: "vertical" }}
+                  style={{ minHeight: "80px", resize: "vertical" }}
                   value={endingDescription}
                   onChange={(e) => onChangeEndingDescription?.(e.target.value)}
-                  placeholder="เขียนคำอธิบายสั้น ๆ สำหรับตอนจบนี้"
+                  placeholder="เขียนคำอธิบายเพิ่มเติมที่นี่..."
                 />
-              </div>
-            ) : (
-              <div className="section section--muted">
-                <p>คำอธิบายจะไม่แสดงใน Ending Collection ถ้ายังไม่เปิดใช้งาน</p>
               </div>
             )}
 
-            <div className="section">
-              <label>Preview Ending Collection</label>
-
-              <div className={`preview-card ${current.className}`}>
-                <div className="preview-icon">{current.icon}</div>
-
-                <div>
-                  <span className="badge">
-                    {current.label}
-                  </span>
-
-                  <h4>{previewTitle}</h4>
-
-                  <p className="preview-description">
-                    {descriptionEnabled
-                      ? endingDescription.trim() || "ยังไม่มีคำอธิบายตอนจบ"
-                      : "คำอธิบายตอนจบจะไม่แสดงหากปิดการใช้งาน"}
-                  </p>
-
-                  <small>
-                    จะแสดงใน Ending Collection
-                    หลังจากนักอ่านปลดล็อกตอนจบนี้
-                  </small>
-                </div>
-              </div>
+            {/* 6. ปุ่มบันทึก */}
+            <div className="save-wrapper">
+              <button className="save-btn" type="button" onClick={() => onSave?.()}>
+                บันทึก
+              </button>
             </div>
-
-            <button className="save-btn" type="button" onClick={() => onSave?.()}>
-              บันทึกการตั้งค่าตอนจบ
-            </button>
           </>
         )}
       </div>

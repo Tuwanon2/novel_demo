@@ -34,7 +34,7 @@
 .se-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - 83px);
   background: var(--gray-50);
   overflow: hidden;
 }
@@ -1092,3 +1092,101 @@
   color: var(--pink-700) !important;
   transform: translateY(-1px);
 }
+
+.se-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1400;
+}
+
+.se-modal-content {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 28px 24px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: center;
+}
+
+.se-modal-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 26px;
+}
+
+.se-modal-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.se-modal-desc {
+  margin: 0 0 22px;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.68;
+}
+
+.se-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.se-modal-btn {
+  flex: 1;
+  min-width: 114px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.se-modal-btn:hover {
+  transform: translateY(-1px);
+}
+
+.se-modal-btn--cancel {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.se-modal-btn--save {
+  background: #ec4899;
+  color: #ffffff;
+  border: 1px solid transparent;
+  box-shadow: 0 14px 28px rgba(236, 72, 153, 0.18);
+}
+
+.ql-editor img {
+  max-width: 80%;
+  max-height: 500px;
+  object-fit: contain;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: inline-block; /* ปรับกลับเป็น inline-block เพื่อให้ลบง่ายและจัด alignment ได้ */
+}
+
+/* เมื่อรูปโดนคลิกเลือก (หรือมีคลาสที่ Quill ทำไฮไลท์) */
+.ql-editor img::selection {
+  background: rgba(0, 123, 255, 0.3);
+}
+

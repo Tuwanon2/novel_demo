@@ -17,6 +17,16 @@ const fmt = (n) => {
   return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n);
 };
 
+const formatCoverUrl = (url) => {
+  if (!url || typeof url !== "string") return null;
+  if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+  let formatted = url.replace("http://minio:9000", "http://localhost:9000");
+  if (formatted.startsWith("/uploads/") || formatted.startsWith("/static/")) {
+    formatted = `${API_BASE_URL}${formatted}`;
+  }
+  return formatted;
+};
+
 // ── Stat cards definition ──
 const STAT_CARDS = [
   {
@@ -279,6 +289,8 @@ const WriterDashboardPage = ({ onNavigate, onSelectNovel }) => {
 
 const NovelCard = ({ novel, onEdit, onTree, onDelete }) => {
   const [showConfirm, setShowConfirm] = useState(false);
+  // ✨ เพิ่ม State สำหรับเช็กคำยืนยันการลบ
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const title = novel.title || "";
   const coverImage = novel.cover_image || novel.coverImage;
@@ -287,6 +299,8 @@ const NovelCard = ({ novel, onEdit, onTree, onDelete }) => {
   const statusVariant = statusInfo.isCompleted ? "completed" : statusInfo.isPublished ? "published" : "draft";
   const status = statusVariant;
   
+  const isPublishedNovel = status === "published" || statusInfo.isPublished;
+
   const categoryList = novel.categories || novel.Categories || [];
   const parsedCategories = Array.isArray(categoryList)
     ? categoryList.map(c => c.name || c.Name).filter(Boolean)
@@ -335,28 +349,30 @@ const NovelCard = ({ novel, onEdit, onTree, onDelete }) => {
 
   const updatedAtText = getUpdatedText(novel.updated_at || novel.updatedAt || novel.created_at || novel.createdAt);
 
+  // ฟังก์ชันปิด Modal และรีเซ็ตค่า Text ยืนยัน
+  const handleCloseConfirm = () => {
+    setShowConfirm(false);
+    setDeleteConfirmText("");
+  };
+
   return (
     <article className="nvc">
       {/* ── Cover Zone ── */}
       <div className="nvc__cover">
         {coverImage ? (
           <img 
-            src={coverImage.replace("http://minio:9000", "http://localhost:9000")} 
+            src={formatCoverUrl(coverImage)} 
             alt={`ปกนิยายเรื่อง ${title}`}
             className="nvc__cover-img"
             onError={(e) => {
               e.currentTarget.style.display = "none";
-              const parent = e.currentTarget.parentElement;
-              if (parent) parent.innerHTML = '<div style="font-size:32px">📖</div>';
             }}
           />
-        ) : (
-          <div className="nvc__cover-emoji">📖</div>
-        )}
-        
-        {/* ป้ายสถานะ */}
+        ) : null}
+
+        {/* ป้ายสถานะมุมบนซ้ายของการ์ด */}
         <span className={`nvc__status ${status === "published" ? "nvc__status--pub" : status === "completed" ? "nvc__status--completed" : "nvc__status--draft"}`}>
-          {statusInfo.mode === "completed-published" ? "จบแล้ว + เผยแพร่" : statusInfo.mode === "completed-draft" ? "จบแล้ว + ฉบับร่าง" : status === "published" ? "เผยแพร่" : "ฉบับร่าง"}
+          {statusInfo.mode === "completed-published" ? "จบแล้ว • เผยแพร่" : statusInfo.mode === "completed-draft" ? "จบแล้ว • ฉบับร่าง" : status === "published" ? "เผยแพร่" : "ฉบับร่าง"}
         </span>
 
         {/* ปุ่มลบ */}
@@ -393,17 +409,59 @@ const NovelCard = ({ novel, onEdit, onTree, onDelete }) => {
 
         <div className="nvc__actions">
           <button className="nvc__btn nvc__btn--edit" onClick={onEdit}>✏️ แก้ไข</button>
-          <button className="nvc__btn nvc__btn--tree" onClick={onTree}>🗂 โครงสร้าง</button>
         </div>
       </div>
 
       {/* Delete confirm overlay */}
       {showConfirm && (
-        <div className="nvc__confirm">
-          <p className="nvc__confirm-text">ต้องการลบนิยายเรื่องนี้?</p>
-          <div className="nvc__confirm-btns">
-            <button className="nvc__confirm-yes" onClick={() => { setShowConfirm(false); onDelete(); }}>ยืนยัน</button>
-            <button className="nvc__confirm-no" onClick={() => setShowConfirm(false)}>ยกเลิก</button>
+        <div className="nvc__confirm" style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "15px" }}>
+          {isPublishedNovel ? (
+            <>
+              <p className="nvc__confirm-text" style={{ color: "#DC2626", fontWeight: "bold", margin: 0 }}>
+                ⚠️ นิยายเรื่องนี้เผยแพร่แล้ว!
+              </p>
+              <p style={{ fontSize: "12px", color: "#4B5563", margin: "0 0 5px 0" }}>
+                ข้อมูลและยอดคนอ่านทั้งหมดจะหายไปอย่างถาวร
+              </p>
+              <input
+                type="text"
+                placeholder='พิมพ์คำว่า "ลบ" เพื่อยืนยัน'
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  borderRadius: "4px",
+                  border: "1px solid #D1D5DB",
+                  fontSize: "13px",
+                  textAlign: "center",
+                  boxSizing: "border-box"
+                }}
+              />
+            </>
+          ) : (
+            <p className="nvc__confirm-text" style={{ margin: 0 }}>ต้องการลบนิยายเรื่องนี้หรือไม่?</p>
+          )}
+
+          <div className="nvc__confirm-btns" style={{ display: "flex", gap: "8px", width: "100%", marginTop: "5px" }}>
+            <button 
+              className="nvc__confirm-yes" 
+              disabled={isPublishedNovel && deleteConfirmText !== "ลบ"}
+              onClick={() => { 
+                handleCloseConfirm(); 
+                onDelete(); 
+              }}
+              style={{
+                opacity: isPublishedNovel && deleteConfirmText !== "ลบ" ? 0.5 : 1,
+                cursor: isPublishedNovel && deleteConfirmText !== "ลบ" ? "not-allowed" : "pointer",
+                flex: 1
+              }}
+            >
+              ยืนยัน
+            </button>
+            <button className="nvc__confirm-no" onClick={handleCloseConfirm} style={{ flex: 1 }}>
+              ยกเลิก
+            </button>
           </div>
         </div>
       )}

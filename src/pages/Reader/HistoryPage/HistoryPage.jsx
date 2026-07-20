@@ -36,39 +36,35 @@ const extractChapterAndSceneFromTitle = (title) => {
 };
 
 const normalizeBook = (item) => ({
-  id: item.id || item.novel_id || item._id || item.novel?.id,
-  title: item.title || item.novel?.title || "ไม่ระบุชื่อเรื่อง",
-  author: item.author_name || item.author?.name || item.novel?.author_name || "ไม่ทราบผู้แต่ง",
-  categories: Array.isArray(item.categories) ? item.categories.map(normalizeCategoryName) : ["ทั่วไป"],
-  coverImage:
-    item.cover_image ||
-    item.coverImage ||
-    item.novel?.cover_image ||
-    "https://via.placeholder.com/320x420",
-  synopsis: stripHtml(item.synopsis || item.description || item.introduction || ""),
-  reading_status: item.reading_status || item.status || "reading",
-  routeFound: item.routeFound || item.visited_count || item.route_found || 0,
-  totalRoutes: item.totalRoutes || item.total_paths || item.total_scenes || item.scene_count || 0,
-  endingCount: item.ending_count || item.endings?.discovered || 0,
-  totalEndings: item.total_endings || item.endings?.total || 0,
-  lastReadAt: item.last_read_at || item.updated_at || item.created_at || new Date().toISOString(),
-  lastReadSceneTitle: item.last_read_scene_title || item.lastReadSceneTitle || item.latestChapter || "ยังไม่ระบุ",
-  lastReadChapterNumber: item.last_read_chapter_number || null,
-  lastReadSceneNumber: item.last_read_scene_number || null,
-  lastReadChapterTitle: item.last_read_chapter_title || null,
-  lastReadSceneName: item.last_read_scene_name || null,
-  lastChoiceText: (() => {
-    const choiceText = item.last_choice_text || item.lastChoiceText || null;
-    // ตรวจสอบว่า choiceText นั้นสมบูรณ์และยาวสมควร (ป้องกันจากการดึงข้อมูลผิด)
-    return (choiceText && typeof choiceText === "string" && choiceText.trim().length > 0) 
-      ? choiceText.trim() 
-      : null;
-  })(),
-  lastReadParsed: (() => {
-    const t = item.last_read_scene_title || item.lastReadSceneTitle || item.latestChapter || "";
-    return extractChapterAndSceneFromTitle(t || "");
-  })(),
-  currentSceneId: item.current_scene_id || item.currentSceneId || item.novel?.current_scene_id || 0,
+  id: item.novel_id || item.id, 
+  title: item.title || "ไม่ระบุชื่อเรื่อง",
+  author: item.author_name || item.pen_name || "ไม่ทราบผู้แต่ง",
+  categories: Array.isArray(item.categories) 
+    ? item.categories.map(c => typeof c === 'object' ? c.name : c) 
+    : ["ทั่วไป"],
+  coverImage: item.cover_image || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=320&q=80",
+  synopsis: stripHtml(item.captions || item.introduction || ""),
+  reading_status: item.reading_status || "reading",
+  routeFound: item.visited_count || 0,
+  totalRoutes: item.total_scenes || item.scene_count || 0,
+  endingCount: item.ending_count || 0,
+  totalEndings: item.total_endings || 0,
+  
+  lastReadAt: (item.last_read_at && !item.last_read_at.startsWith("0001")) 
+    ? item.last_read_at 
+    : item.updated_at || item.created_at || new Date().toISOString(),
+
+  // 🎯 สลับเอากลุ่ม current_ ขึ้นก่อน เพื่อเคารพค่าปัจจุบันที่กดมาจากหน้าผังนิยาย
+  lastReadChapterNumber: item.current_chapter_number || item.last_read_chapter_number || null,
+  lastReadChapterTitle: item.current_chapter_title || item.last_read_chapter_title || null,
+  lastReadSceneNumber: item.current_scene_number || item.last_read_scene_number || null,
+  lastReadSceneName: item.current_scene_name || item.current_scene_title || item.last_read_scene_name || item.last_read_scene_title || null,
+  
+  // 💎 คงทางเลือกก่อนหน้าไว้เหมือนเดิม ไม่แตะต้องลอจิกส่วนนี้
+  lastChoiceText: item.last_choice_text || null,
+  
+  // ยึดเลขฉากปัจจุบันจากการย้อนผังเป็นหลัก
+  currentSceneId: item.current_scene_id || item.scene_id || item.last_read_scene_id || 0,
 });
 
 const HistoryPage = ({ onNavigate }) => {
@@ -109,8 +105,12 @@ const HistoryPage = ({ onNavigate }) => {
     };
 
     loadHistory();
+
+    window.addEventListener("focus", loadHistory);
+
     return () => {
       active = false;
+      window.removeEventListener("focus", loadHistory);
     };
   }, []);
 
@@ -179,25 +179,32 @@ const HistoryPage = ({ onNavigate }) => {
               const status = STATUS_MAP[book.reading_status] || STATUS_MAP.reading;
               const percent = book.totalRoutes ? Math.round((book.routeFound / book.totalRoutes) * 100) : 0;
               const chapterLabel = book.lastReadChapterTitle
-                ? `ตอนที่ ${book.lastReadChapterNumber || "?"} : ${book.lastReadChapterTitle}`
-                : book.lastReadChapterNumber
-                ? `ตอนที่ ${book.lastReadChapterNumber}`
-                : "ยังไม่ระบุตอน";
+  ? `ตอนที่ ${book.lastReadChapterNumber || "?"} : ${book.lastReadChapterTitle}`
+  : book.lastReadChapterNumber
+  ? `ตอนที่ ${book.lastReadChapterNumber}`
+  : book.isMismatched
+  ? "กำลังอ่าน (ย้อนไทม์ไลน์)"
+  : "ยังไม่ระบุตอน";
               
-              // กวาดหา "ลำดับฉาก" จากทุกชื่อตัวแปรที่เป็นไปได้
               const scNum = 
                 book.lastReadSceneNumber || 
+                book.currentSceneId ||
                 book.sceneNumber || 
                 book.scene_number || 
                 book.scene_index || 
                 book.lastReadParsed?.scene || 
-                book.lastReadParsed?.sceneNumber || 
                 book.last_read_scene_number;
               
               const sceneTitle = book.lastReadSceneName || book.lastReadSceneTitle;
-              const sceneLabel = sceneTitle 
-                ? (scNum ? `ฉากที่ ${scNum} : ${sceneTitle}` : sceneTitle)
-                : (scNum ? `ฉากที่ ${scNum}` : "ยังไม่ระบุฉาก");
+              const finalSceneTitle = (sceneTitle && !sceneTitle.includes("ตอนที่")) ? sceneTitle : null;
+
+              const sceneLabel = book.lastReadSceneName
+  ? (book.lastReadSceneNumber ? `ฉากที่ ${book.lastReadSceneNumber} : ${book.lastReadSceneName}` : book.lastReadSceneName)
+  : book.lastReadSceneNumber
+  ? `ฉากที่ ${book.lastReadSceneNumber}`
+  : book.isMismatched
+  ? `ฉากปัจจุบัน (ไอดี: ${book.currentSceneId})`
+  : "ยังไม่ระบุฉาก";
 
               return (
                 <div key={book.id || `${book.title}-${book.author}`} className="history-card">
@@ -240,7 +247,6 @@ const HistoryPage = ({ onNavigate }) => {
                         <div>{sceneLabel}</div>
                       </div>
                       
-                      {/* ทางเลือกก่อนหน้า */}
                       {book.lastChoiceText ? (
                         <div className="history-card__info-item history-card__info-item--full">
                           <div className="history-card__info-label">ทางเลือกก่อนหน้า</div>
@@ -278,11 +284,14 @@ const HistoryPage = ({ onNavigate }) => {
                       type="button"
                       className="history-card__continue-btn"
                       onClick={() => {
-                        const sceneId = book.currentSceneId || book.current_scene_id || 0;
-                        if (typeof onNavigate === "function") {
-                          onNavigate("reading", { novelId: book.id, sceneId: sceneId || undefined });
+                        const targetScene = book.currentSceneId;
+                        
+                        // 🎯 ปรับปรุงความปลอดภัย: บังคับเปลี่ยนผ่าน URL ของระบบ Router ของเว็บโดยตรงคู่ขนานไปด้วย
+                        // เพื่อให้ React Router ประมวลผลดึง useParams() ส่งไปให้ ReadingPage ทันที 
+                        if (targetScene && targetScene !== 0) {
+                          navigate(`/reading/${book.id}/${targetScene}`);
                         } else {
-                          navigate(`/reading/${book.id}${sceneId ? `/${sceneId}` : ""}`);
+                          navigate(`/reading/${book.id}`);
                         }
                       }}
                     >

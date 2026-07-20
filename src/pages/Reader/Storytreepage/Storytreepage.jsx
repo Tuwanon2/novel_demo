@@ -458,7 +458,7 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 0, onNavigate }) => {
     }
   };
 
-  const handleNodeClick = (_, node) => {
+  const handleNodeClick = async (_, node) => {
     const currentStatus = node.data?.computedStatus;
     const clickable = currentStatus === NODE_STATUS.CURRENT ||
       currentStatus === NODE_STATUS.VISITED ||
@@ -466,10 +466,42 @@ const StoryTreePage = ({ novelId: propNovelId, userId = 0, onNavigate }) => {
 
     if (!clickable) return;
 
+    // 🎯 ดึง ID มาเช็ก และแปลงเป็น String เพื่อความชัวร์
+    const targetSceneId = node.data?.id || node.id; 
+    
+    console.log("=== Debug แผนผังนักอ่าน ===");
+    console.log("novelId ที่ได้รับ:", activeNovelId);
+    console.log("sceneId ที่ถูกคลิก:", targetSceneId);
+
+    // 🚀 ยิง API ไปอัปเดต Backend ทันที (ถอดเงื่อนไขจุกจิกออกเพื่อให้มันพยายามยิงเสมอ)
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        // เปลี่ยนเป็นคิวรีหารูปแบบ URL ตามที่คุณใช้ (ลองใช้ endpoint /history/progress หรือปรับตาม backend)
+        await fetch(`${BASE_URL}/history/progress`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            novel_id: Number(activeNovelId),
+            scene_id: Number(targetSceneId),
+          }),
+        });
+        console.log("✅ ยิง API บันทึกฉากใหม่สำเร็จ!");
+      } else {
+        console.warn("❌ ไม่พบ Token ใน localStorage เลยไม่ได้ยิง API");
+      }
+    } catch (err) {
+      console.error("💥 เกิด Error ตอนยิง API:", err);
+    }
+
+    // ➡️ เปลี่ยนหน้าหลังจากยิงคำสั่ง (หรือลองยิงแล้ว)
     if (onNavigate) {
       onNavigate("reading", {
         novelId: activeNovelId,
-        initialSceneId: node.data.id,
+        initialSceneId: targetSceneId,
       });
     }
   };

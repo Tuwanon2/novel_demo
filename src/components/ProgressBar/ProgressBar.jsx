@@ -74,7 +74,7 @@ const ProgressBar = ({
               <path d="M3.5 4.5L7 7.25L10.5 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M3.5 9.5L7 6.75L10.5 9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            ดู Ending Collection
+            ดู คลังฉากจบ
           </button>
         </div>
       </div>

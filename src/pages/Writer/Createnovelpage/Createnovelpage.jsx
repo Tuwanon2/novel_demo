@@ -179,8 +179,7 @@ const CreateNovelPage = () => {
             // 1. อัปโหลดรูปภาพปกไปยังระบบฝากไฟล์ MinIO ก่อน
             if (form.coverFile) {
                 const imageFormData = new FormData();
-                imageFormData.append("image", form.coverFile, "cover_novel.jpg");
-                console.log("ไฟล์ที่กำลังจะส่ง:", form.coverFile);
+                imageFormData.append("image", form.coverFile ,"cover_novel.jpg"); 
 
                 // 🎯 แก้ไขจุดที่ 1: เปลี่ยนเส้นทาง Endpoint ไปที่ /upload/image
                 const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {

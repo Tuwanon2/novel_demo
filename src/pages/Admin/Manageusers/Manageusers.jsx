@@ -187,6 +187,8 @@ const Manageusers = ({ onNavigate = () => { } }) => {
     userName: ''
   });
 
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
   useEffect(() => {
     const fetchRequests = async () => {
       setIsLoading(true);

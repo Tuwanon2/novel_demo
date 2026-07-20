@@ -152,8 +152,8 @@ const NovelBanner = ({ novel, chapters, onEdit, onToggleStatus, isUpdatingNovelS
             แก้ไข
           </button>
           <button
-            className={`cm-btn cm-btn--sm ${!isPublishedNovel ? 'cm-btn--primary bg-blue-500 border-blue-500 text-white' : 'cm-btn--outline'}`}
-            style={{ ...(!isPublishedNovel ? { backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: '#ffffff' } : {}) }}
+            className={`cm-btn cm-btn--sm ${!isPublishedNovel ? 'cm-btn--primary bg-pink-500 border-pink-500 text-white' : 'cm-btn--outline'}`}
+            style={{ ...(!isPublishedNovel ? { backgroundColor: '#fe9ad3', borderColor: '#fe9ad3', color: '#ffffff' } : {}) }}
             onClick={onToggleStatus}
             disabled={isUpdatingNovelStatus}
           >
@@ -352,7 +352,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
                 setScope(nextScope);
                 if (nextScope === "same") {
                   setSelectedChapterId(currentChapterId);
-                  setSubScene(""); 
+                  setSubScene("");
                 } else {
                   const nextChapterId = selectedChapterId || firstOtherChapterId;
                   setSelectedChapterId(nextChapterId);
@@ -370,7 +370,7 @@ const ChoiceRow = ({ choice, sceneOptions = [], currentChapterId, onUpdate, onCr
                 <select className="cm-select" value={effectiveChapterId || ""} onChange={(e) => {
                   const chapterId = e.target.value;
                   setSelectedChapterId(chapterId);
-                  setSubScene(""); 
+                  setSubScene("");
                 }}>
                   <option value="">-- เลือกตอน --</option>
                   {chapterOptions.filter((ch) => String(ch.value) !== String(currentChapterId)).map((ch) => (
@@ -610,7 +610,7 @@ const SceneCard = ({
   };
 
   return (
-    <div className="cm-scene" style={{
+    <div className="cm-scene" id={`scene-card-${sceneId}`} style={{
       marginBottom: '20px',
       border: '1px solid #f3f4f6',
       borderRadius: '16px',
@@ -964,6 +964,51 @@ const ChapterPanel = ({
     setInputTitle(chapter?.title ?? "");
     setIsEditingTitle(false);
   }, [chapterId, chapter?.title]);
+  useEffect(() => {
+    const target = sessionStorage.getItem("focusSceneTarget");
+    if (!target || !isOpen) return;
+
+    // หน่วงเวลาเล็กน้อย รอให้ API ดึงข้อมูลฉากใหม่มาวาดบนจอให้เสร็จก่อน
+    const timer = setTimeout(() => {
+      let element = null;
+
+      // กรณีที่ 1: เพิ่งกดสร้างฉากใหม่ -> ให้เลื่อนไปหาฉากอันล่างสุดของตอนนี้
+      if (target.startsWith("new_in_")) {
+        const targetChId = target.replace("new_in_", "");
+        if (String(targetChId) === String(chapterId)) {
+          const scenes = chapter?.scenes || [];
+          if (scenes.length > 0) {
+            const lastScene = scenes[scenes.length - 1];
+            const lastSceneId = lastScene?.scene_id ?? lastScene?.id ?? lastScene?.ID ?? lastScene?.SceneID;
+            element = document.getElementById(`scene-card-${lastSceneId}`);
+          }
+        }
+      } 
+      // กรณีที่ 2: เพิ่งกลับมาจากการแก้ไขฉาก -> เลื่อนไปหาฉากนั้นเลย
+      else {
+        element = document.getElementById(`scene-card-${target}`);
+      }
+
+      // ถ้าเจอเป้าหมาย ให้เลื่อนจอ + ทำไฮไลต์กรอบกระพริบให้ผู้ใช้สังเกตง่ายๆ
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // ไฮไลต์เรืองแสงสีชมพูแป๊บนึง
+        const originalBoxShadow = element.style.boxShadow;
+        element.style.transition = 'box-shadow 0.4s ease-out';
+        element.style.boxShadow = '0 0 0 3px #db2777, 0 0 15px rgba(219, 39, 119, 0.4)';
+        
+        setTimeout(() => { 
+          element.style.boxShadow = originalBoxShadow || '0 8px 20px rgba(0, 0, 0, 0.04)'; 
+        }, 2000);
+        
+        // เลื่อนเสร็จแล้วล้างความจำทิ้ง จะได้ไม่เลื่อนซ้ำเวลา Refresh หน้าเว็บ
+        sessionStorage.removeItem("focusSceneTarget");
+      }
+    }, 600); // 600ms ให้จังหวะ UI โหลดนิ่งสนิท
+
+    return () => clearTimeout(timer);
+  }, [chapter?.scenes, chapterId, isOpen]);
 
   const handleSaveTitle = async () => {
     if (!inputTitle.trim()) return alert("กรุณากรอกชื่อตอน");
@@ -1086,12 +1131,45 @@ const ChapterPanel = ({
     return new Date(Math.max(...latestTimestamp)).toISOString();
   };
 
+  // 🔍 ตรวจสอบความผิดพลาดของสถานะ (UX Check)
+  const isChapterDraft = (chapter?.status || "draft").toString().toLowerCase() === "draft";
+  const hasPublishedScenes = (chapter?.scenes || []).some(s => (s.status || "draft").toString().toLowerCase() === "published");
+  const isStatusConflict = isChapterDraft && hasPublishedScenes;
+
   return (
     <div className="cm-chapter-panel" style={{
-      backgroundColor: '#ffffff', borderRadius: '20px', border: '1.5px solid #fbcfe8',
-      padding: '24px', marginBottom: '28px', boxShadow: '0 4px 15px rgba(219, 39, 119, 0.03)',
-      position: 'relative', fontFamily: '"Sarabun", sans-serif'
+      backgroundColor: '#ffffff', borderRadius: '20px', border: isStatusConflict ? '2px solid #ef4444' : '1.5px solid #fbcfe8',
+      padding: '24px', marginBottom: '28px', boxShadow: isStatusConflict ? '0 4px 20px rgba(239, 68, 68, 0.15)' : '0 4px 15px rgba(219, 39, 119, 0.03)',
+      position: 'relative', fontFamily: '"Sarabun", sans-serif', transition: 'all 0.3s ease'
     }}>
+
+      {/* ⚠️ ป้ายเตือนกรณีลืมกดเผยแพร่ตอนหลัก */}
+      {isStatusConflict && (
+        <div style={{
+          backgroundColor: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px',
+          padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', gap: '16px', flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <p style={{ margin: 0, fontSize: '14px', color: '#991b1b', fontWeight: '700', lineHeight: 1.5 }}>
+              นักอ่านจะไม่เห็นเนื้อหา! เนื่องจาก <span style={{ textDecoration: 'underline' }}>ตอนหลักยังเป็นฉบับร่าง</span> แต่คุณมีบางฉากย่อยเปิดเผยแพร่ไว้ด้านล่างแล้ว
+            </p>
+          </div>
+          <button
+            onClick={handleToggleStatus}
+            disabled={isUpdatingStatus}
+            style={{
+              backgroundColor: '#ef4444', color: '#ffffff', border: 'none', padding: '8px 16px',
+              borderRadius: '20px', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
+              boxShadow: '0 4px 10px rgba(239, 68, 68, 0.25)', transition: 'all 0.2s'
+            }}
+          >
+            {isUpdatingStatus ? "⏳ กำลังเปลี่ยน..." : "🚀 เผยแพร่ตอนนี้เลย"}
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px' }}>
           <button
@@ -1128,9 +1206,20 @@ const ChapterPanel = ({
                 </button>
               </div>
             ) : (
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-                ตอนที่ {chapterNumber} : {chapterTitle}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                  ตอนที่ {chapterNumber} : {chapterTitle}
+                </h3>
+                {/* 🟢🔴 ป้ายสถานะตอนหลักขนาดใหญ่เห็นชัด */}
+                <span style={{
+                  backgroundColor: isChapterDraft ? '#fee2e2' : '#dcfce7',
+                  color: isChapterDraft ? '#991b1b' : '#15803d',
+                  border: `1px solid ${isChapterDraft ? '#fca5a5' : '#86efac'}`,
+                  padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800'
+                }}>
+                  {isChapterDraft ? "📌 ฉบับร่าง" : "🌐 เผยแพร่แล้ว"}
+                </span>
+              </div>
             )}
 
             {!isEditingTitle && (
@@ -1162,12 +1251,12 @@ const ChapterPanel = ({
           <button
             onClick={() => onAddScene && onAddScene(chapterId)}
             style={{
-              background: 'linear-gradient(135deg, #db2777 0%, #be185d 100%)', color: '#ffffff', border: 'none',
+              background: 'linear-gradient(135deg, #ff9dc9 0%, #f85096 100%)', color: '#ffffff', border: 'none',
               padding: '8px 18px', borderRadius: '20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer',
-              boxShadow: '0 4px 10px rgba(219, 39, 119, 0.25)', marginTop: '4px'
+              boxShadow: '0 4px 10px rgba(247, 82, 156, 0.25)', marginTop: '4px'
             }}
           >
-            ➕ เพิ่มฉากย่อย
+            ➕ เพิ่มฉาก
           </button>
         </div>
       </div>
@@ -1176,7 +1265,7 @@ const ChapterPanel = ({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ fontSize: '14px', fontWeight: '700', color: chapter?.status === 'published' ? '#16a34a' : '#991b1b' }}>
-          สถานะตอน: {chapter?.status === 'published' ? '🟢 เผยแพร่แล้ว' : '🔴 ฉบับร่าง'}
+          การแสดงผลบนหน้านิยาย: {chapter?.status === 'published' ? '🟢 ผู้อ่านมองเห็นเนื้อหาแล้ว' : '🔴 ซ่อนอยู่ (ฉบับร่าง)'}
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -1185,8 +1274,9 @@ const ChapterPanel = ({
             disabled={isUpdatingStatus}
             style={{
               backgroundColor: chapter?.status === 'published' ? '#f1f5f9' : '#ffffff',
-              border: '1px solid #cbd5e1', color: '#334155', padding: '6px 16px',
-              borderRadius: '8px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer'
+              border: chapter?.status === 'published' ? '1px solid #cbd5e1' : '1.5px solid #16a34a',
+              color: chapter?.status === 'published' ? '#334155' : '#16a34a', padding: '6px 16px',
+              borderRadius: '8px', fontSize: '13.5px', fontWeight: '700', cursor: 'pointer'
             }}
           >
             {isUpdatingStatus ? "⏳ กำลังเปลี่ยน..." : chapter?.status === 'published' ? "เปลี่ยนเป็นฉบับร่าง" : "🚀 เผยแพร่ตอนนี้"}
@@ -1242,7 +1332,16 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
   const [novel, setNovel] = useState(null);
   const [isUpdatingNovelStatus, setIsUpdatingNovelStatus] = useState(false);
   const [chapters, setChapters] = useState([]);
-  const [activeChapterId, setActiveChapterId] = useState(null);
+  const [activeChapterId, setActiveChapterId] = useState(() => {
+    return sessionStorage.getItem(`activeChapter_${currentNovelId}`) || null;
+  });
+
+  // บันทึกค่า activeChapterId ทันทีที่มีการสลับตอน
+  useEffect(() => {
+    if (activeChapterId && currentNovelId) {
+      sessionStorage.setItem(`activeChapter_${currentNovelId}`, activeChapterId);
+    }
+  }, [activeChapterId, currentNovelId]);
   const [isCreatingChapter, setIsCreatingChapter] = useState(false);
   const [draftChapterTitle, setDraftChapterTitle] = useState("");
   const [draftChapterStatus, setDraftChapterStatus] = useState("draft");
@@ -1251,12 +1350,14 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchNovelAndChapters = async () => {
+  const fetchNovelAndChapters = async (isSilent = false) => {
     if (!currentNovelId) {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       return;
     }
-    setLoading(true);
+
+    // ถ้าเป็นการโหลดแบบเงียบ (Silent) จะไม่รัน setLoading(true) ทำให้หน้าเว็บไม่กระตุกหรือพับกล่องลง
+    if (!isSilent) setLoading(true);
     const authToken = getToken();
 
     try {
@@ -1308,10 +1409,18 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
           setChapters(actualChapters);
           if (actualChapters.length > 0) {
             setActiveChapterId((prev) => {
+              // 1. ดึงค่าตอนล่าสุดที่เคยเลือกไว้จาก Session Storage มาเช็กด้วย
+              const savedId = sessionStorage.getItem(`activeChapter_${currentNovelId}`);
+              const targetId = prev || savedId;
+
               const firstId = actualChapters[0].id ?? actualChapters[0].ID ?? actualChapters[0].chapter_id ?? actualChapters[0].ChapterID;
-              if (!prev) return firstId;
-              const isValueExist = actualChapters.some(c => String(c.id ?? c.ID ?? c.chapter_id ?? c.ChapterID) === String(prev));
-              return isValueExist ? prev : firstId;
+
+              // 2. ถ้าไม่มีค่า prev หรือค่าใน session เลย ให้แสดงตอนที่ 1
+              if (!targetId) return firstId;
+
+              // 3. ตรวจสอบว่าตอนที่เลือกล่าสุด ยังมีอยู่ในฐานข้อมูลไหม (กันกรณีลบตอนไปแล้ว)
+              const isValueExist = actualChapters.some(c => String(c.id ?? c.ID ?? c.chapter_id ?? c.ChapterID) === String(targetId));
+              return isValueExist ? targetId : firstId;
             });
           }
         }
@@ -1319,7 +1428,8 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     } catch (err) {
       console.error("โหลดรายชื่อตอนล้มเหลว:", err);
     } finally {
-      setLoading(false);
+      // ถ้าเป็นการโหลดแบบเงียบ ก็ไม่ต้องไปสั่งปิด loading เพื่อไม่ให้มันเด้งกวนใจ
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -1422,7 +1532,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
         setDraftChapterStatus("draft");
         const data = await res.json();
         const createdChapterId = data.chapter_id ?? data.chapter?.id ?? data.chapter?.ID ?? data.chapter?.chapter_id ?? data.data?.chapter_id;
-        await fetchNovelAndChapters();
+        await fetchNovelAndChapters(true);
         if (createdChapterId) {
           setActiveChapterId(createdChapterId);
         }
@@ -1457,6 +1567,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
 
   const handleAddScene = async (chapterId) => {
     if (!chapterId) return;
+    sessionStorage.setItem("focusSceneTarget", `new_in_${chapterId}`);
     if (typeof onNavigate === "function") {
       const novelTitleVal = novel?.title || novel?.novelTitle || novel?.name || "";
       const chapterObj = (chapters || []).find(c => String(c.id ?? c.chapter_id ?? c.ChapterID ?? c.chapterId) === String(chapterId));
@@ -1519,7 +1630,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
           });
 
           if (!res.ok) throw new Error("อัปเดตสถานะนิยายไม่สำเร็จ");
-          await fetchNovelAndChapters();
+          await fetchNovelAndChapters(true);
         } finally {
           setIsUpdatingNovelStatus(false);
         }
@@ -1537,7 +1648,6 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     try {
       window.open(previewUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
-      // fallback to navigation in same tab if popup blocked
       window.location.href = previewUrl;
     }
   };
@@ -1570,7 +1680,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
           if (String(activeChapterId) === String(chapterId)) {
             setActiveChapterId(null);
           }
-          await fetchNovelAndChapters();
+          await fetchNovelAndChapters(true);
         } catch (err) {
           console.error("เกิดข้อผิดพลาดในการลบตอน:", err);
         }
@@ -1602,15 +1712,14 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
             <p className="cm-topbar__sub">จัดการรายการตอนและรายละเอียดฉากของคุณ</p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {/* 🆕 เพิ่มปุ่มทดลองอ่าน (Preview) เปิดแท็บใหม่ */}
             <button
-                className="se-header__btn se-header__btn--preview se-header__btn--preview-inline"
-                type="button"
-                onClick={handleOpenPreview}
-                style={{ padding: "8px 14px", borderRadius: "10px", fontSize: "12px", height: "auto", margin: 0 }}
-              >
-                ▶ ทดลองอ่าน
-              </button>
+              className="se-header__btn se-header__btn--preview se-header__btn--preview-inline"
+              type="button"
+              onClick={handleOpenPreview}
+              style={{ padding: "8px 14px", borderRadius: "10px", fontSize: "12px", height: "auto", margin: 0 }}
+            >
+              ▶ ทดลองอ่าน
+            </button>
             <button
               className="cm-btn cm-btn--outline"
               onClick={() => onNavigate("story-tree", { novelId: currentNovelId })}
@@ -1628,16 +1737,68 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
           isUpdatingNovelStatus={isUpdatingNovelStatus}
         />
 
-        {activeChapter ? (
+        {/* 🌟 เช็กกรณีนิยายเรื่องนี้ยังไม่มีตอนแรก (`chapters.length === 0`) */}
+        {chapters.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '60px 24px',
+            marginTop: '20px',
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            border: '2.5px dashed #fbcfe8',
+            textAlign: 'center',
+            boxShadow: '0 4px 15px rgba(219, 39, 119, 0.02)'
+          }}>
+            <div style={{
+              fontSize: '54px',
+              marginBottom: '16px',
+              animation: 'bounce 2s infinite',
+              display: 'inline-block'
+            }}>✍️</div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>
+              เริ่มรังสรรค์โลกจินตนาการของคุณกัน!
+            </h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#64748b', maxWidth: '380px', lineHeight: '1.6' }}>
+              นิยายใหม่เรื่องนี้ยังไม่มีตอนแรกอยู่เลย มาร่วมเขียนก้าวแรกของเนื้อเรื่องโดยการเพิ่มตอนใหม่ตรงนี้กันเถอะ
+            </p>
+            <button
+              onClick={openCreateChapterForm}
+              style={{
+                background: 'linear-gradient(135deg, #db2777 0%, #be185d 100%)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '12px 28px',
+                borderRadius: '24px',
+                fontSize: '15px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 8px 20px rgba(219, 39, 119, 0.3)',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              ✨ สร้างตอนแรกที่นี่เลย
+            </button>
+          </div>
+        ) : activeChapter ? (
           <ChapterPanel
             chapter={activeChapter}
             allChapters={chapters}
-            fetchScenes={fetchNovelAndChapters}
+            fetchScenes={() => fetchNovelAndChapters(true)}
             onAddScene={handleAddScene}
             onDeleteChapter={handleDeleteChapter}
             openConfirmDialog={openConfirmDialog}
-            onWrite={(chId, scId) => onNavigate("scene-editor", { novelId: currentNovelId, chapterId: chId, sceneId: scId })}
-          />
+            onWrite={(chId, scId) => {
+              sessionStorage.setItem("focusSceneTarget", scId);
+              onNavigate("scene-editor", { novelId: currentNovelId, chapterId: chId, sceneId: scId });
+            }} />
         ) : (
           <div className="cm-empty-state">
             📭 ยังไม่มีการเลือกตอนเพื่อดูฉากย่อย กรุณาเลือกดูรายชื่อตอนจากเมนูด้านขวามือค่ะ
@@ -1719,12 +1880,12 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
             setChapters(next);
             const orderedIds = next.map(c => c.id ?? c.ID ?? c.chapter_id ?? c.ChapterID).filter(Boolean);
             await reorderChaptersOnServer(orderedIds);
-            await fetchNovelAndChapters();
+            await fetchNovelAndChapters(true);
           }}>
             <Droppable droppableId="chapters-droppable">
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps}>
-                 {filteredChapters.map((ch, index) => {
+                  {filteredChapters.map((ch, index) => {
                     const chId = ch.id ?? ch.ID ?? ch.chapter_id ?? ch.ChapterID ?? index;
                     const chKey = String(chId);
                     const chTitle = ch.title ?? ch.Title ?? `ตอนที่ ${index + 1}`;
