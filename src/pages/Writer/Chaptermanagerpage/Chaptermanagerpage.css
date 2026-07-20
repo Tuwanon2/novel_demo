@@ -192,15 +192,16 @@
    Chapter Header Panel
 ══════════════════════════════════════════ */
 .cm-chapter__header-panel {
-  background: #fff5f9;
-  border-radius: 14px;
-  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #f3e8ef;
+  border-radius: 18px;
+  padding: 22px 24px;
   margin-bottom: 20px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  border: 1px solid #fbcfe8;
+  align-items: flex-start;
+  gap: 24px;
+  box-shadow: 0 4px 12px rgba(15,23,42,.04);
 }
 
 .cm-chapter__header-left {
@@ -211,17 +212,13 @@
 }
 
 .cm-chapter__header-episode {
-  font-size: 32px;
+  width: 56px;
+  height: 56px;
+  font-size: 24px;
   font-weight: 800;
   color: #ec4899;
-  background: rgba(236, 72, 153, 0.06);
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  background: #fdf2f8;
+  border: 1px solid #fbcfe8;
 }
 
 .cm-chapter__header-info {

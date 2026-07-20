@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom"; 
 import "./ReadingPage.css";
+import "react-quill-new/dist/quill.snow.css"; // 🟢 จุดที่ 1: นำเข้าดีไซน์การจัดหน้าของ Quill
 import ReadingBreadcrumb from "../../../components/ReadingBreadcrumb/ReadingBreadcrumb";
 import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
 import RestartReadingButton from "../../../components/RestartReadingButton/RestartReadingButton";
@@ -13,6 +14,7 @@ const BASE_URL = "http://localhost:8080";
 const ReadingPage = ({
   userId = 0,
   novelTitle = "กำลังโหลดชื่อเรื่อง...",
+  initialSceneId = null, 
 }) => {
 
   const { novelId, sceneId } = useParams();
@@ -38,7 +40,7 @@ const ReadingPage = ({
   const effectiveUserId = getCurrentUserId() || userId;
 
   const [currentView, setCurrentView] = useState("reading");
-  const [currentSceneId, setCurrentSceneId] = useState(sceneId || null);
+  const [currentSceneId, setCurrentSceneId] = useState(initialSceneId || sceneId || null);
   const [sceneData, setSceneData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -135,11 +137,6 @@ const ReadingPage = ({
     }
   };
 
-  useEffect(() => {
-    if (sceneId && sceneId !== "undefined") {
-      setCurrentSceneId(sceneId);
-    }
-  }, [sceneId]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -165,9 +162,6 @@ const ReadingPage = ({
     loadBookmarkStatus();
   }, [novelId, effectiveUserId]);
 
-  // ==========================================
-  // 🌟 ฟังก์ชันใหม่: อัปเดต Progress และปลดล็อกฉาก
-  // ==========================================
   const updateReadingProgress = async (nId, sId, sceneType) => {
     try {
       const token = localStorage.getItem("token");
@@ -177,7 +171,6 @@ const ReadingPage = ({
       if (!effectiveUserId) {
         console.warn("No logged-in user found, skipping progress save.");
       } else {
-        // 1. บันทึกพิกัดปัจจุบันและปลดล็อกเส้นทางในตาราง history
         const progressRes = await fetch(`${BASE_URL}/progress`, {
           method: "POST",
           headers,
@@ -193,7 +186,6 @@ const ReadingPage = ({
           console.error("Progress save failed:", progressRes.status, errText);
         }
 
-        // 2. ถ้าฉากนี้เป็นจุดจบ (Ending) ให้ยิงไปบันทึกลง user_endings ด้วย
         if ((sceneType === "ending" || sceneType === "Ending") && effectiveUserId) {
           const endingRes = await fetch(`${BASE_URL}/user-endings`, {
             method: "POST",
@@ -216,16 +208,16 @@ const ReadingPage = ({
     }
   };
 
-  // ==========================================
-  // 🔄 FETCH ข้อมูลจาก GO API
-  // ==========================================
-  useEffect(() => {
+useEffect(() => {
     if (!novelId || novelId === "undefined") {
-      console.error("❌ บั๊กหน้าจอ: ReadingPage ไม่ได้รับรหัสนิยาย (novelId เป็น undefined)");
-      setError("ไม่พบรหัสนิยาย (Novel ID เป็น undefined) กรุณาตรวจสอบการส่งค่ามาจากหน้าก่อนหน้า");
+      console.error("❌ บั๊กหน้าจอ: ReadingPage ไม่ได้รับรหัสนิยาย");
+      setError("ไม่พบรหัสนิยาย กรุณาตรวจสอบการส่งค่ามาจากหน้าก่อนหน้า");
       setLoading(false);
       return;
     }
+
+    // 🎯 ดึงไอดีที่ส่งมาจาก URL หรือประวัติโดยตรง ณ วินาทีนั้น ไม่พึ่งพา State ภายในเพื่อป้องกันการหน่วง
+    const activeSceneId = sceneId || initialSceneId || currentSceneId;
 
     const fetchScene = async () => {
       setLoading(true);
@@ -233,13 +225,21 @@ const ReadingPage = ({
       try {
         let url = "";
         const query = effectiveUserId > 0 ? `?user_id=${effectiveUserId}` : "";
-        if (!currentSceneId) {
+        
+        if (!activeSceneId || activeSceneId === "undefined" || activeSceneId === "0") {
           url = `${BASE_URL}/novels/${novelId}/start${query}`;
         } else {
-          url = `${BASE_URL}/scenes/${currentSceneId}${query}`;
+          url = `${BASE_URL}/scenes/${activeSceneId}${query}`;
         }
 
         const response = await fetch(url);
+        
+        if (response.status === 404) {
+          setError("EMPTY_SCENE"); 
+          setLoading(false);
+          return;
+        }
+
         if (!response.ok) {
           throw new Error("ไม่สามารถโหลดเนื้อหาฉากจากระบบหลังบ้านได้");
         }
@@ -247,21 +247,30 @@ const ReadingPage = ({
         const resData = await response.json();
 
         if (resData && resData.data) {
+          const loadedNovelId = resData.data.novel_id || resData.data.novelId;
+          
+          if (loadedNovelId && String(loadedNovelId) !== String(novelId)) {
+            console.error("Safety Net Triggered: ฉากที่โหลดมาไม่ตรงกับนิยายที่กำลังอ่าน");
+            setError("EMPTY_SCENE"); 
+            setLoading(false);
+            return;
+          }
+
+          // 1. ตั้งค่าข้อมูลฉาก
           setSceneData(resData.data);
           const loadedSceneId = resData.data.scene_id || resData.data.id;
           
-          if (!currentSceneId) {
-            setCurrentSceneId(loadedSceneId);
-          }
-
-          // Load comments for this scene immediately
+          // 2. ซิงค์อัปเดต State ภายในให้ตรงกันครั้งเดียว
+          setCurrentSceneId(loadedSceneId);
+          
+          // 3. เรียกดึงคอมเมนต์ของฉากนั้นทันทีหลังจากได้ข้อมูลมา
           fetchSceneComments(loadedSceneId);
-
-          // 🎯 เรียกใช้ฟังก์ชันอัปเดตทันทีที่โหลดฉากใหม่เสร็จ!
+          
+          // 4. บันทึกความคืบหน้าการอ่านลงดาต้าเบส (จะเกิดขึ้นครั้งเดียวเมื่อฉากเปลี่ยนจริงเท่านั้น)
           updateReadingProgress(novelId, loadedSceneId, resData.data.type);
 
         } else {
-          throw new Error("รูปแบบข้อมูลที่หลังบ้านส่งมาไม่ถูกต้อง");
+          setError("EMPTY_SCENE");
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -273,16 +282,10 @@ const ReadingPage = ({
 
     fetchScene();
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentSceneId, novelId, userId]);
+    
+  // 🎯 เฝ้าดูเฉพาะ novelId และ sceneId ที่มาจาก URL เท่านั้น เมื่อเปลี่ยนปุ๊บเคลียร์ฉากใหม่ปั๊บ
+  }, [novelId, sceneId, initialSceneId]);
 
-  useEffect(() => {
-    if (!currentSceneId) return;
-    fetchSceneComments(currentSceneId);
-  }, [currentSceneId]);
-
-  // ==========================================
-  // 📊 PROGRESS BAR LOGIC
-  // ==========================================
   useEffect(() => {
     const handleScroll = () => {
       const el = document.documentElement;
@@ -296,9 +299,6 @@ const ReadingPage = ({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // ==========================================
-  // 🖱️ HANDLE CHOICE CLICK & POST HISTORY
-  // ==========================================
   const handleChoose = async (choice) => {
     setSelectedChoiceId(choice.choice_id);
     setIsTransitioning(true);
@@ -308,7 +308,6 @@ const ReadingPage = ({
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // บันทึกทางเลือกลง user_choice_history
       if (!effectiveUserId) {
         console.warn("No logged-in user found, skipping choice history save.");
       } else {
@@ -504,7 +503,6 @@ const ReadingPage = ({
     }
   };
 
-  // ⏳ LOADING & ERROR STATES
   if (loading) {
     return (
       <div className="rp__loading" aria-live="polite">
@@ -515,15 +513,45 @@ const ReadingPage = ({
   }
 
   if (error) {
+    if (error === "EMPTY_SCENE") {
+      return (
+        <div style={{ padding: "50px 20px", textAlign: "center", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: "#f8fafc" }}>
+          <div style={{ fontSize: "64px", marginBottom: "20px" }}>🚧</div>
+          <h2 style={{ fontSize: "26px", color: "#334155", marginBottom: "12px", fontFamily: "'Sarabun', sans-serif", fontWeight: "bold" }}>
+            ยังไม่มีเนื้อหาในนิยายเรื่องนี้
+          </h2>
+          <p style={{ color: "#64748b", marginBottom: "32px", fontSize: "16px", maxWidth: "400px", lineHeight: "1.6" }}>
+            นักเขียนกำลังเรียบเรียงและยังไม่ได้เผยแพร่ฉากแรก โปรดรอติดตามและกลับมาดูใหม่ในภายหลัง
+          </p>
+          <button
+            onClick={() => handleLocalNavigate("novel-detail")}
+            style={{ 
+              padding: "12px 28px", 
+              background: "var(--pink-500)", 
+              color: "#fff", 
+              border: "none", 
+              borderRadius: "8px", 
+              fontSize: "16px", 
+              fontWeight: "600",
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(233, 30, 140, 0.2)" 
+            }}
+          >
+            กลับหน้ารายละเอียดนิยาย
+          </button>
+        </div>
+      );
+    }
+
     return (
-      <div style={{ padding: "50px", textAlign: "center", color: "red", background: "#fff5f5", minHeight: "100vh" }}>
+      <div style={{ padding: "50px", textAlign: "center", color: "red", background: "#fff5f5", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <h3 style={{ fontSize: "1.5rem", marginBottom: "10px" }}>เกิดข้อผิดพลาดในการโหลดเนื้อหา</h3>
         <p style={{ color: "#555", marginBottom: "20px" }}>{error}</p>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => handleLocalNavigate("novel-detail")}
           style={{ padding: "8px 20px", cursor: "pointer", background: "#f44336", color: "#fff", border: "none", borderRadius: "4px" }}
         >
-          กลับไปหน้ารายชื่อนิยายหลัก
+          กลับไปหน้ารายละเอียดนิยาย
         </button>
       </div>
     );
@@ -565,9 +593,6 @@ const ReadingPage = ({
 
   const tag = getSceneTagDetails(type);
 
-  // ==========================================
-  // 📖 RENDER DISPLAY 
-  // ==========================================
   return (
     <div className={`rp rp--theme-${theme}`}>
       <div className="rp__progress-bar" style={{ width: `${readProgress}%` }} role="progressbar" />
@@ -609,18 +634,6 @@ const ReadingPage = ({
             chapterTitle={chapterTitleUsed || (type === "start" ? "บทนำ" : "ตอนอ่านต่อ")}
             onBack={() => handleLocalNavigate("novel-detail")}
             onStoryMap={() => handleLocalNavigate("story-tree")}
-            extraAction={
-              <ActionButtons
-                isBookmarked={isBookmarked}
-                isLiked={false}
-                onBookmark={(newState) => handleBookmark(newState)}
-                showRead={false}
-                showLike={false}
-                onRead={() => {
-                  if (novelId) navigate(`/reading/${novelId}/${currentSceneId || ""}`);
-                }}
-              />
-            }
           />
 
           <article className={`rp__article ${isTransitioning ? "rp__article--out" : "rp__article--in"}`} ref={contentRef}>
@@ -671,12 +684,14 @@ const ReadingPage = ({
             <span className="rp__orn-line" />
           </div>
 
-          <div
-            className={`rp__body rp__body--${theme}`}
-            aria-label="เนื้อหา"
-            style={{ fontFamily: getFontFamilyString(fontFamily), fontSize: `${fontSize}px` }}
-            dangerouslySetInnerHTML={{ __html: content }}
-          />
+          <div className="ql-snow">
+            <div
+              className={`rp__body rp__body--${theme} ql-editor`}
+              aria-label="เนื้อหา"
+              style={{ fontFamily: getFontFamilyString(fontFamily), fontSize: `${fontSize}px` }}
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          </div>
 
           {choices && choices.length > 0 && (
             <ChoiceButtons

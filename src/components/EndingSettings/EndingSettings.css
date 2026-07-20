@@ -21,23 +21,42 @@
   padding: 24px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 16px;
 }
 
-.ending-header h3 {
+.ending-header-text h3 {
   margin: 0;
   color: #1a1a2e;
 }
 
-.ending-header p {
+.ending-header-text p {
   margin-top: 6px;
   color: #9ca3af;
   font-size: 13px;
+  margin-bottom: 0;
+}
+
+.header-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-toggle-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
 }
 
 .section {
-  padding: 16px 20px;
+  padding: 16px 24px;
   border-top: 1px solid #f3f4f6;
+}
+
+.section.no-border-top {
+  border-top: none;
+  padding-top: 0;
 }
 
 .section label {
@@ -66,10 +85,12 @@
   border-radius: 14px;
   padding: 14px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .type-card.active {
   border-color: #e91e8c;
+  background: #fff5f9;
 }
 
 .icon {
@@ -92,70 +113,131 @@
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   font-size: 14px;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-row-text label {
+  margin-bottom: 4px;
+}
+
+.toggle-row-text p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* 🃏 Preview Card - ถอดแบบเป๊ะๆ จากหน้าคลังฉากจบจริง */
 .preview-card {
   display: flex;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid #eee;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 16px; /* บีบกรอบบน-ล่างให้แคบลง */
+  border-radius: 12px; /* ลดความมนลงให้สมดุลกับกล่องเล็ก */
+  border-width: 2px;
+  border-style: solid;
+  transition: all 0.3s ease;
 }
 
 .preview-icon {
-  font-size: 32px;
-}
-
-.preview-card h4 {
-  margin: 8px 0 4px;
-  color: #1a1a2e;
-}
-
-.preview-card small {
-  color: #9ca3af;
+  font-size: 40px; /* ลดขนาดไอคอนลงให้ไม่แย่งซีน */
+  line-height: 1;
+  margin-bottom: 8px; /* ลดช่องว่าง */
 }
 
 .badge {
-  padding: 4px 8px;
-  border-radius: 8px;
+  display: inline-block;
+  width: auto;
+  min-width: auto; /* 🌟 เอาความกว้างที่ล็อกไว้ออก ให้หดพอดีคำ */
+  padding: 4px 12px; /* ลดความหนาของ Badge */
+  border-radius: 999px;
   font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #f8fafc;
+  color: #1e293b;
+  margin-bottom: 12px; /* ลดช่องว่าง */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.preview-card h4 {
+  margin: 0 0 6px 0; /* ลดช่องว่างใต้ชื่อตอนจบ */
+  color: #0f172a;
+  font-size: 18px; /* ปรับฟอนต์ให้พอดี ไม่ตะโกนเกินไป */
   font-weight: 700;
 }
 
+.preview-description {
+  margin: 0 0 16px 0; /* ลดช่องว่างใต้คำอธิบาย */
+  color: #475569;
+  font-size: 13px; /* ปรับเล็กลงนิดนึงให้อ่านง่ายแต่ไม่เปลืองที่ */
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
+
+.preview-card small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* 🎨 Themes (อิงตามสีกรอบหน้าคลังจริง) */
 .preview-card.good {
-  background: #f0fdf4;
+  border-color: #38bdf8;
+  background: #ffffff;
 }
 
 .preview-card.bad {
-  background: #fef2f2;
+  border-color: #fca5a5;
+  background: #ffffff;
 }
 
 .preview-card.true {
-  background: #fefce8;
+  border-color: #facc15;
+  background: #ffffff;
 }
 
 .preview-card.secret {
-  background: #f5f3ff;
+  border-color: #c084fc;
+  background: #ffffff;
+}
+/* 💾 Save Button */
+.save-wrapper {
+  padding: 20px 24px 32px 24px;
+  display: flex;
+  justify-content: center;
 }
 
 .save-btn {
-  margin: 20px;
-  width: calc(100% - 40px);
+  width: 280px;
   padding: 14px;
   border: none;
-  border-radius: 14px;
+  border-radius: 999px;
   background: linear-gradient(90deg, #e91e8c, #ff6eb4);
   color: white;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 14px rgba(233, 30, 140, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-/* Toggle */
+.save-btn:active {
+  transform: scale(0.98);
+}
 
+/* 🎚️ Toggle Switch */
 .switch {
   position: relative;
-  width: 52px;
-  height: 30px;
+  width: 44px;
+  height: 24px;
 }
 
 .switch input {
@@ -165,21 +247,23 @@
 .slider {
   position: absolute;
   inset: 0;
-  background: #d1d5db;
+  background: #e5e7eb;
   border-radius: 999px;
   cursor: pointer;
+  transition: 0.3s;
 }
 
 .slider::before {
   content: "";
   position: absolute;
-  width: 22px;
-  height: 22px;
-  left: 4px;
-  top: 4px;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
   background: white;
   border-radius: 50%;
-  transition: 0.2s;
+  transition: 0.3s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .switch input:checked + .slider {
@@ -187,5 +271,5 @@
 }
 
 .switch input:checked + .slider::before {
-  transform: translateX(22px);
+  transform: translateX(20px);
 }

@@ -45,7 +45,7 @@
 
 /* ── Container ── */
 .rp__container {
-    max-width: 700px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 32px 32px 80px;
 }
@@ -293,4 +293,9 @@
         font-size: 3.2em;
     }
 }
-/* Comments moved to reusable component `src/components/Comments/Comments.css` */
+.reading-content-area p {
+  margin-top: 0;
+  margin-bottom: 12px; /* ระยะห่างระหว่างย่อหน้า */
+  line-height: 1.8;     /* ระยะห่างระหว่างบรรทัด อ่านแล้วไม่เบียดกัน */
+  font-size: 18px;      /* ขนาดฟอนต์มาตรฐานสำหรับนิยาย */
+}

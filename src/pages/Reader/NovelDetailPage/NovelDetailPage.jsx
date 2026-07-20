@@ -108,6 +108,7 @@ const NovelDetailPage = () => {
 
       setLoading(true);
       setError(null);
+      setNextSceneId(null);
 
       try {
         const token = localStorage.getItem("token");
@@ -286,7 +287,8 @@ const NovelDetailPage = () => {
 
   const handleRead = () => {
     const hasNoContent = novel.userProgress?.totalChapters === 0;
-    const hasSavedScene = !!nextSceneId;
+    // 🎯 เช็กง่ายๆ: ถ้ามี id ฉากค้างไว้ แปลว่าเคยอ่านแล้ว ให้เปิดโหมด "อ่านต่อ"
+    const hasSavedScene = !!nextSceneId; 
 
     if (hasNoContent) {
       setShowNoContentDialog(true);
@@ -295,9 +297,12 @@ const NovelDetailPage = () => {
 
     if (novel.id) {
       const previewSuffix = isPreview ? "?preview=true" : "";
+      
       if (hasSavedScene) {
+        // 📖 อ่านต่อ: พาวิ่งไปฉากล่าสุดที่เซฟค้างไว้ของเรื่องนี้
         navigate(`/reading/${novel.id}/${nextSceneId}${previewSuffix}`);
       } else {
+        // 🚀 อ่านเลย: พาวิ่งไปจุดเริ่มต้นฉากแรกของเรื่องนี้
         navigate(`/reading/${novel.id}${previewSuffix}`);
       }
     }
@@ -612,8 +617,9 @@ const NovelDetailPage = () => {
               <ActionButtons
                 isBookmarked={novel.isBookmarked}
                 isLiked={novel.isLiked}
-                readLabel={novel.userProgress.currentChapter > 0 ? "อ่านต่อ" : "อ่านเลย"}
-                readAriaLabel={novel.userProgress.currentChapter > 0 ? "อ่านต่อ" : "อ่านเลย"}
+                // 🎯 เปลี่ยนข้อความปุ่ม: ถ้ามีฉากค้างไว้ให้ขึ้น "อ่านต่อ" ถ้าไม่มีให้ขึ้น "อ่านเลย"
+                readLabel={nextSceneId ? "อ่านต่อ" : "อ่านเลย"}
+                readAriaLabel={nextSceneId ? "อ่านต่อ" : "อ่านเลย"}
                 onRead={handleRead}
                 onBookmark={isPreview ? undefined : handleBookmark}
                 onLike={isPreview ? undefined : handleLike}
@@ -697,40 +703,6 @@ const NovelDetailPage = () => {
           endings={endings}
           onClose={() => setShowEndingModal(false)}
           onViewStoryMap={(sceneId) => handleStoryMap(sceneId)}
-        />
-
-        <Comments
-          comments={comments}
-          currentUserId={getCurrentUserId()}
-          commentText={commentText}
-          onCommentTextChange={(e) => setCommentText(e.target.value)}
-          onSubmit={(text) => handleSendComment(text)}
-          onDeleteComment={async (commentId) => {
-            const token = localStorage.getItem("token");
-            if (!token) {
-              navigate("/login-register");
-              return;
-            }
-
-            try {
-              const response = await fetch(`${API_BASE_URL}/comments?comment_id=${commentId}`, {
-                method: "DELETE",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-
-              if (!response.ok) {
-                const payload = await response.json().catch(() => null);
-                throw new Error(payload?.error || payload?.message || `${response.status} ${response.statusText}`);
-              }
-
-              await fetchNovelComments();
-            } catch (err) {
-              console.error("Failed to delete comment:", err);
-              alert(`ไม่สามารถลบความคิดเห็นได้: ${err.message || "ระบบขัดข้อง"}`);
-            }
-          }}
         />
 
         {showNoContentDialog && (

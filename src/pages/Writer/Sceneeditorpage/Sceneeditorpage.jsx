@@ -3,7 +3,6 @@
 //  หน้าเขียน/แก้ไขฉากนิยาย (Scene Editor) — ฝั่งนักเขียน 
 //  [ ปรับแต่งเชื่อมต่อ Go หลังบ้าน ผ่าน /scenes/:id และ /story-tree ]
 // ══════════════════════════════════════════════════════════════
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill-new";
@@ -11,6 +10,7 @@ import "quill/dist/quill.snow.css";
 import "./SceneEditorPage.css";
 import Toggle from "../../../components/Toggle/Toggle";
 import EndingSettings from "../../../components/EndingSettings/EndingSettings";
+import Quill from "quill";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
@@ -27,22 +27,25 @@ const QUILL_TOOLBAR_OPTIONS = [
   ["link", "image"],
   ["clean"],
 ];
-
 const quillFormats = [
-  "header",
-  "size",
-  "bold",
-  "italic",
-  "underline",
-  "strike",
-  "color",
-  "background",
-  "list",
-  "align",
-  "link",
-  "image",
+  'header',
+  'font',
+  'size',
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'blockquote',
+  'list',
+  'bullet',
+  'indent',
+  'link',
+  'image',
+  'video',
+  'align',
+  'color',
+  'background'
 ];
-
 // ─────────────────────────────────────────────
 // Choice Card Component (อัปเดตลอจิกแบบเดียวกับหน้า Chapter Manager)
 // ─────────────────────────────────────────────
@@ -59,7 +62,7 @@ const ChoiceCard = ({
   const allScenes = (Array.isArray(allTargetOptions) ? allTargetOptions : []).flatMap((ch) => {
     const scenes = Array.isArray(ch.scenes) ? ch.scenes : [];
     const chapterTitle = ch.title || ch.chapterTitle || "";
-    const chapterId = ch.id || ch.chapterId || ch.ChapterID || ch.chapter_id || "";
+    const chapterId = ch.id || ch.chapter_id || ch.ChapterID || ch.chapter_id || "";
     return scenes.map((s) => ({
       value: `${chapterId}||${s.id ?? s.scene_id ?? s.SceneID}`,
       label: `${chapterTitle} › ${s.title || s.label || s.sceneTitle || "ฉากไม่มีชื่อ"}`,
@@ -161,12 +164,7 @@ const ChoiceCard = ({
     if (validScenes.length > 0) {
       setSubScene(validScenes[0].value);
       setTargetLabel(validScenes[0].label);
-      onUpdate?.({
-        ...choice,
-        text,
-        targetType: scopeValue,
-        targetSubScene: validScenes[0].value,
-      });
+      // ลบการเรียก onUpdate ออก เพื่อให้ยังไม่บันทึกจนกดยืนยัน
     } else {
       setSubScene("");
       setTargetLabel("เลือกฉากปลายทาง...");
@@ -185,12 +183,7 @@ const ChoiceCard = ({
     if (validScenes.length > 0) {
       setSubScene(validScenes[0].value);
       setTargetLabel(validScenes[0].label);
-      onUpdate?.({
-        ...choice,
-        text,
-        targetType,
-        targetSubScene: validScenes[0].value,
-      });
+      // ลบการเรียก onUpdate ออก
     } else {
       setSubScene("");
       setTargetLabel("เลือกฉากปลายทาง...");
@@ -201,13 +194,6 @@ const ChoiceCard = ({
     setSubScene(val);
     const found = findSceneByValue(val);
     if (found) setTargetLabel(found.label || found.chapterTitle);
-
-    onUpdate?.({
-      ...choice,
-      text,
-      targetType,
-      targetSubScene: val,
-    });
   };
 
   const handleSaveEdit = () => {
@@ -326,7 +312,6 @@ const ChoiceCard = ({
                 value={text}
                 onChange={(e) => {
                   setText(e.target.value);
-                  onUpdate?.({ ...choice, text: e.target.value });
                 }}
                 placeholder="ตัวอย่าง: สำรวจแบบไม่ย่อท้อ..."
               />
@@ -550,13 +535,12 @@ const SceneTreeSidebar = ({
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--gray-800)' }}>จุดจบของเรื่อง</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>{isEnding ? "ใช่ (นี่คือตอนจบ)" : "ไม่ใช่"}</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--gray-800)' }}>ตั้งค่าฉากจบ</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>{isEnding ? "ใช่ (นี่คือฉากจบ)" : "ไม่ใช่"}</span>
           </div>
           <Toggle
             checked={isEnding}
             onChange={(value) => {
-              setIsEnding(value);
               onToggleEnding?.(value);
             }}
             id={`toggle-ending-sidebar`}
@@ -627,7 +611,7 @@ const SceneTreeSidebar = ({
           className={`se-tree__filter-btn ${sceneFilter === "draft" ? "active" : ""}`}
           onClick={() => setSceneFilter("draft")}
         >
-          ยังไม่เผยแพร่
+          ฉบับร่าง
         </button>
       </div>
 
@@ -768,7 +752,31 @@ const SceneEditorPage = ({
   // States สำหรับเก็บค่าพิกัด เพื่อป้องกันตำแหน่งกราฟเคลื่อนหายเวลาบันทึก
   const [coordinateX, setCoordinateX] = useState(x ?? 0);
   const [coordinateY, setCoordinateY] = useState(y ?? 0);
+  useEffect(() => {
+    const editorEl = document.querySelector('.se-quill');
+    if (!editorEl) return;
 
+    const handleImageClick = (e) => {
+      // ถ้าตัวที่คลิกเป็นรูปภาพ (IMG) และอยู่ในกลุ่มของ Quill Editor
+      if (e.target.tagName === 'IMG' && e.target.closest('.ql-editor')) {
+        const img = e.target;
+
+        // สั่งให้ Browser ทำการลากคลุม (Select) รูปภาพนี้ให้ทันทีแบบอัตโนมัติ
+        const range = document.createRange();
+        range.selectNode(img);
+
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    };
+    document.addEventListener('click', handleImageClick);
+
+    // คืนค่าทำความสะอาดเมื่อปิดหน้าจอ
+    return () => {
+      document.removeEventListener('click', handleImageClick);
+    };
+  }, []);
   const charCount = useMemo(() => {
     const textOnly = content
       .replace(/<[^>]*>/g, " ")
@@ -787,9 +795,22 @@ const SceneEditorPage = ({
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUnsaved, setIsUnsaved] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isUnsaved) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isUnsaved]);
   const [lastSaved, setLastSaved] = useState(null);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
 
   // States สำหรับ dialog เพิ่มตอน/ฉากใหม่
   const [showAddChapterDialog, setShowAddChapterDialog] = useState(false);
@@ -800,6 +821,7 @@ const SceneEditorPage = ({
 
   const token = localStorage.getItem("token");
   const quillRef = useRef(null);
+  const saveDraftTimer = useRef(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [choiceToDelete, setChoiceToDelete] = useState(null);
@@ -819,6 +841,7 @@ const SceneEditorPage = ({
       const savedDraft = JSON.parse(rawDraft);
       if (!savedDraft || typeof savedDraft !== "object") return;
 
+      // เพิ่มการเช็กเผื่อเวลาที่ข้อมูลหลังบ้านเพิ่งโหลดเสร็จ จะได้ไม่โดนทับ
       if (savedDraft.sceneTitle !== undefined) setSceneTitle(savedDraft.sceneTitle);
       if (savedDraft.sceneLabel !== undefined) setSceneLabel(savedDraft.sceneLabel);
       if (savedDraft.content !== undefined) setContent(savedDraft.content);
@@ -827,7 +850,11 @@ const SceneEditorPage = ({
       setEndingTitle(savedDraft.endingTitle || "");
       setEndingType(savedDraft.endingType || "true");
       setEndingDescription(savedDraft.endingDescription || "");
-      setEndingDescriptionEnabled(Boolean(savedDraft.endingDescriptionEnabled));
+      setEndingDescriptionEnabled(
+        savedDraft.endingDescriptionEnabled !== undefined
+          ? savedDraft.endingDescriptionEnabled
+          : Boolean(savedDraft.endingDescription || savedDraft.ending_description)
+      );
       if (Array.isArray(savedDraft.choices)) setChoices(savedDraft.choices);
       if (savedDraft.draftSavedAt) {
         const savedTime = new Date(savedDraft.draftSavedAt);
@@ -914,6 +941,15 @@ const SceneEditorPage = ({
         if (editor) {
           editor.insertEmbed(range.index ?? 0, "image", imageUrl);
           editor.setSelection((range.index ?? 0) + 1);
+          // immediately sync editor HTML into state so autosave captures image
+          try {
+            const newHtml = editor.root?.innerHTML;
+            if (typeof newHtml === "string") setContent(newHtml);
+          } catch (e) {
+            // ignore
+          }
+          // try to persist draft immediately
+          try { saveDraftToStorage(); } catch (e) { /* ignore */ }
         }
       } catch (err) {
         console.error("Scene editor image upload error:", err);
@@ -922,19 +958,27 @@ const SceneEditorPage = ({
         setIsImageUploading(false);
       }
     };
-  }, [content, normalizeMinioUrl, token]);
+  }, [content, normalizeMinioUrl, token, saveDraftToStorage]);
 
-  const quillModules = useMemo(
-    () => ({
+  const quillModules = useMemo(() => {
+    return {
       toolbar: {
-        container: QUILL_TOOLBAR_OPTIONS,
+        container: [
+          [{ header: '1' }, { header: '2' }, { font: [] }],
+          [{ size: [] }],
+          ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+          // แนะนำเพิ่ม [{ align: [] }] เข้ามาเพื่อให้คนเขียนจัดรูปให้อยู่กึ่งกลาง ชิดซ้าย หรือชิดขวาได้แบบ ReadAWrite
+          [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }, { align: [] }],
+          ['link', 'image', 'video'],
+          ['clean'],
+        ],
         handlers: {
           image: handleQuillImageUpload,
         },
       },
-    }),
-    [handleQuillImageUpload]
-  );
+      // ✂️ ลบ imageResize: {} ตรงนี้ออกไปแล้ว
+    };
+  }, [handleQuillImageUpload]);
 
   const fetchSceneData = useCallback(async () => {
     setIsLoading(true);
@@ -965,7 +1009,13 @@ const SceneEditorPage = ({
         if (novelRes.ok) {
           const novelResult = await novelRes.json().catch(() => null);
           const novelData = novelResult?.novel || novelResult?.data || novelResult || {};
-          setNovelTitle(novelData.title || novelData.title || novelData.name || novelData.novelTitle || "ไม่ระบุชื่อนิยาย");
+          setNovelTitle(
+            novelData.title ||
+            novelData.novel_title ||
+            novelData.name ||
+            novelData.novelTitle ||
+            "ไม่ระบุชื่อนิยาย"
+          );
         }
       } catch (e) {
         // ignore
@@ -979,14 +1029,50 @@ const SceneEditorPage = ({
         const sceneResult = await sceneRes.json();
         const sceneData = sceneResult?.data || sceneResult;
 
+        // ─── ✨ 1. ตรวจสอบข้อมูลฉบับร่างใน localStorage ✨ ───
+        let draftData = null;
+        try {
+          const rawDraft = localStorage.getItem(sceneDraftKey);
+          if (rawDraft) {
+            draftData = JSON.parse(rawDraft);
+          }
+        } catch (e) {
+          console.warn("Error parsing draft during fetch:", e);
+        }
+
         setNovelTitle(sceneData.novelTitle || sceneData.novel_title || "ไม่ระบุชื่อนิยาย");
         setChapterTitle(sceneData.chapterTitle || sceneData.chapter_title || "ไม่ระบุชื่อตอน");
+
+        // ─── ✨ 2. ผสานค่าระหว่าง Draft กับ Backend ✨ ───
+        const resolvedSceneTitle = draftData?.sceneTitle !== undefined ? draftData.sceneTitle : (sceneData.sceneTitle || sceneData.scene_title || sceneData.title || "");
+        setSceneTitle(resolvedSceneTitle);
+
         setSceneLabel(
-          sceneData.sceneLabel || sceneData.scene_label || sceneData.sceneTitle || sceneData.scene_title || sceneData.title || `ฉาก ${sceneData.scene_id || sceneData.id}`
+          draftData?.sceneLabel !== undefined
+            ? draftData.sceneLabel
+            : (sceneData.sceneLabel || sceneData.scene_label || sceneData.sceneTitle || sceneData.scene_title || sceneData.title || `ฉาก ${sceneData.scene_id || sceneData.id}`)
         );
-        setSceneTitle(sceneData.sceneTitle || sceneData.scene_title || sceneData.title || "");
-        setContent(sceneData.content || "");
-        setSceneType(sceneData.type || sceneData.scene_type || "normal");
+
+        setContent(draftData?.content !== undefined ? draftData.content : (sceneData.content || ""));
+
+        const resolvedSceneType = draftData?.sceneType !== undefined ? draftData.sceneType : (sceneData.type || sceneData.scene_type || "normal");
+        setSceneType(resolvedSceneType);
+
+        // ข้อมูลของส่วนฉากจบ (Ending Settings)
+        setIsEnding(
+          draftData?.sceneType === "ending" || draftData?.isEnding !== undefined
+            ? !!draftData.isEnding
+            : (sceneData.type === "ending" || sceneData.isEnding || sceneData.is_ending || false)
+        );
+        setEndingTitle(draftData?.endingTitle !== undefined ? draftData.endingTitle : (sceneData.endingTitle || sceneData.ending_title || ""));
+        setEndingType(draftData?.endingType !== undefined ? draftData.endingType : (sceneData.endingType || sceneData.ending_type || "true"));
+        setEndingDescription(draftData?.endingDescription !== undefined ? draftData.endingDescription : (sceneData.endingDescription || sceneData.ending_description || ""));
+        setEndingDescriptionEnabled(
+          draftData?.endingDescriptionEnabled !== undefined
+            ? draftData.endingDescriptionEnabled
+            : Boolean(sceneData.endingDescription || sceneData.ending_description)
+        );
+
         // ค้นหาตอนที่แท้จริงจากโครงสร้างของตอนและฉากย่อย
         let foundChapterId = null;
         if (Array.isArray(chaptersData)) {
@@ -1015,11 +1101,6 @@ const SceneEditorPage = ({
           sceneData.isPublished === "true" ||
           sceneData.is_published === "true";
         setIsPublished(isPub);
-        setIsEnding(sceneData.type === "ending" || sceneData.isEnding || sceneData.is_ending || false);
-        setEndingTitle(sceneData.endingTitle || sceneData.ending_title || "");
-        setEndingType(sceneData.endingType || sceneData.ending_type || "true");
-        setEndingDescription(sceneData.endingDescription || sceneData.ending_description || "");
-        setEndingDescriptionEnabled(Boolean(sceneData.endingDescription || sceneData.ending_description));
 
         // ดึงพิกัดเพื่อนำมาสืบทอด
         setCoordinateX(sceneData.x ?? sceneData.X ?? x ?? 0);
@@ -1031,17 +1112,23 @@ const SceneEditorPage = ({
           setCurrentSelectedChapterId(chapterId);
         }
 
-        const normalizedChoices = (Array.isArray(sceneData.choices) ? sceneData.choices : []).map((choice) => ({
+        // ข้อมูลของ Choices ตัวเลือกท้ายตอน
+        const backendChoices = (Array.isArray(sceneData.choices) ? sceneData.choices : []).map((choice) => ({
           ...choice,
           id: choice.id ?? choice.choice_id ?? choice.choiceId ?? `choice-${choice.choice_id || choice.id || Date.now()}`,
           text: choice.text ?? choice.label ?? choice.Label ?? "",
           targetSubScene: choice.targetSubScene ?? choice.to_scene_id ?? choice.toSceneID ?? choice.toSceneId ?? "",
         }));
-        setChoices(normalizedChoices);
+
+        setChoices(Array.isArray(draftData?.choices) ? draftData.choices : backendChoices);
+
+        if (draftData?.draftSavedAt) {
+          setDraftSavedAt(new Date(draftData.draftSavedAt));
+        }
       } else {
         // กรณีเป็นฉากใหม่ชั่วคราวที่คลิกวางจาก Canvas
         setSceneTitle(initialSceneTitle || "");
-        setSceneLabel(initialSceneTitle || "ยังไม่ได้ตั้งชื่อเรื่อง");
+        setSceneLabel(initialSceneTitle || "ยังไม่ได้ตั้งฉาก");
         setContent("");
         setSceneType("normal");
         setIsPublished(false);
@@ -1071,9 +1158,9 @@ const SceneEditorPage = ({
       setErrorMsg(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
     } finally {
       setIsLoading(false);
+      setIsUnsaved(false);
     }
-  }, [novelId, sceneId, token, isNewScene, initialSceneTitle, x, y, chapterId]);
-
+  }, [novelId, sceneId, token, isNewScene, initialSceneTitle, x, y, chapterId, sceneDraftKey]);
   useEffect(() => {
     fetchSceneData();
   }, [fetchSceneData]);
@@ -1088,18 +1175,47 @@ const SceneEditorPage = ({
 
   useEffect(() => {
     if (!isLoading) {
-      restoreDraft();
+      const timer = setTimeout(() => {
+        restoreDraft();
+      }, 50); // ดีเลย์ 50ms รอให้ State ของ API นิ่งก่อนแล้วดึงตััวดราฟต์มาทับ
+      return () => clearTimeout(timer);
     }
   }, [isLoading, restoreDraft]);
 
+  // Autosave: debounce and trigger when any editable field changes
   useEffect(() => {
     if (!sceneDraftKey) return;
     const timer = setTimeout(() => {
-      saveDraftToStorage();
-    }, 1400);
+      try {
+        saveDraftToStorage();
+      } catch (err) {
+        console.warn("Autosave failed:", err);
+      }
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [sceneDraftKey, saveDraftToStorage]);
+    // include all editable fields so any change triggers autosave
+  }, [
+    sceneDraftKey,
+    sceneTitle,
+    sceneLabel,
+    content,
+    sceneType,
+    endingTitle,
+    endingType,
+    endingDescription,
+    endingDescriptionEnabled,
+    JSON.stringify(choices || []),
+  ]);
+
+  // Persist draft on unload to avoid losing edits on refresh/close
+  useEffect(() => {
+    const handler = (e) => {
+      try { saveDraftToStorage(); } catch (err) { /* ignore */ }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [saveDraftToStorage]);
 
   const handleSave = async (overridePublishStatus = null, returnToManager = false, overrideChoices = null, overrideIsEnding = null) => {
     setIsSaving(true);
@@ -1185,6 +1301,7 @@ const SceneEditorPage = ({
 
       clearDraft();
       setLastSaved(new Date());
+      setIsUnsaved(false);
 
       if (isNewScene) {
         const savedData = await response.json().catch(() => null);
@@ -1272,22 +1389,49 @@ const SceneEditorPage = ({
 
   const handleToggleEnding = async (value) => {
     if (value) {
+      if (choices.length > 0) {
+        setErrorMsg(
+          "ฉากจบไม่สามารถสร้างทางเลือกต่อได้ **กรุณาลบตัวเลือกในฉากนี้ออก หรือเปลี่ยนประเภทฉากเพื่อไปต่อ**"
+        );
+        setTimeout(() => setErrorMsg(null), 8000);
+        return;
+      }
+
       if (sceneType === "start") {
-        setErrorMsg("Start scene cannot be an ending scene");
-        setIsEnding(false);
+        setErrorMsg("ไม่สามารถตั้งค่าฉากเริ่มต้นให้เป็นฉากจบได้ กรุณาเลือกฉากอื่นเป็นฉากจบ");
         setTimeout(() => setErrorMsg(null), 5000);
         return;
       }
+
       setIsEnding(true);
       setShowEndingSettingsDialog(true);
       return;
     }
+
     await handleSave(null, false, null, false);
+  };
+
+  const handleOpenEndingSettings = () => {
+    if (choices.length > 0) {
+      setErrorMsg(
+        "ฉากจบไม่สามารถสร้างทางเลือกต่อได้ **กรุณาลบตัวเลือกในฉากนี้ออก หรือเปลี่ยนประเภทฉากเพื่อไปต่อ**"
+      );
+      setTimeout(() => setErrorMsg(null), 8000);
+      return;
+    }
+
+    if (sceneType === "start") {
+      setErrorMsg("ไม่สามารถตั้งค่าฉากเริ่มต้นให้เป็นฉากจบได้ กรุณาเลือกฉากอื่นเป็นฉากจบ");
+      setTimeout(() => setErrorMsg(null), 5000);
+      return;
+    }
+
+    setShowEndingSettingsDialog(true);
   };
 
   const saveEndingSettings = async () => {
     if (sceneType === "start") {
-      setErrorMsg("Start scene cannot be an ending scene");
+      setErrorMsg("ไม่สามารถตั้งค่าฉากเริ่มต้นให้เป็นฉากจบได้ กรุณาเลือกฉากอื่นเป็นฉากจบ");
       setTimeout(() => setErrorMsg(null), 5000);
       return;
     }
@@ -1337,6 +1481,7 @@ const SceneEditorPage = ({
   };
 
   const handleAddScene = async (chId) => {
+    // Open the add-scene dialog so user can input scene title before creating
     if (!chId) return;
     setSelectedChapterForNewScene(chId);
     setNewSceneTitle("");
@@ -1349,20 +1494,72 @@ const SceneEditorPage = ({
       return;
     }
 
-    if (typeof onNavigate === "function") {
-      onNavigate("scene-editor", {
-        novelId,
-        chapterId: selectedChapterForNewScene,
-        sceneId: "new",
-        title: newSceneTitle.trim(),
-      });
+    if (!token) {
+      alert("กรุณาเข้าสู่ระบบก่อนเพิ่มฉาก");
+      return;
     }
-    setShowAddSceneDialog(false);
-    setSelectedChapterForNewScene(null);
-    setNewSceneTitle("");
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const payload = {
+        novel_id: parseInt(novelId, 10),
+        chapter_id: parseInt(selectedChapterForNewScene, 10),
+        title: newSceneTitle.trim(),
+        content: "",
+        x: 0,
+        y: 0,
+        type: "normal",
+        status: "draft",
+      };
+
+      const res = await fetch(`${API_BASE_URL}/scenes`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => null);
+        console.error("สร้างฉากใหม่ล้มเหลว:", res.status, txt);
+        setErrorMsg("ไม่สามารถสร้างฉากใหม่ได้ กรุณาลองใหม่");
+        return;
+      }
+
+      const data = await res.json().catch(() => null) || {};
+      const createdSceneId = data.scene_id ?? data.id ?? data.data?.scene_id ?? data.data?.id;
+
+      // Persist a toast to be shown after navigation
+      sessionStorage.setItem("toastMessage", `สร้างฉาก \"${newSceneTitle.trim()}\" สำเร็จ`);
+      // set focus flag for scene title in the editor
+      sessionStorage.setItem("focusSceneTitle", "true");
+
+      await fetchSceneData();
+      window.dispatchEvent(new Event("novel-data-updated"));
+
+      setShowAddSceneDialog(false);
+      setSelectedChapterForNewScene(null);
+      setNewSceneTitle("");
+
+      if (createdSceneId) {
+        if (typeof onNavigate === "function") {
+          onNavigate("scene-editor", { novelId, chapterId: selectedChapterForNewScene, sceneId: createdSceneId });
+        } else {
+          window.location.href = `/scene-editor/${novelId}/${selectedChapterForNewScene}/${createdSceneId}`;
+        }
+      } else {
+        if (typeof onNavigate === "function") {
+          onNavigate("scene-editor", { novelId, chapterId: selectedChapterForNewScene, sceneId: "new" });
+        }
+      }
+    } catch (err) {
+      console.error("Add scene error:", err);
+      setErrorMsg("เกิดข้อผิดพลาดขณะเพิ่มฉาก");
+    }
   };
 
-  const handleAddChapter = async () => {
+  const handleAddChapter = () => {
     setNewChapterTitle("");
     setShowAddChapterDialog(true);
   };
@@ -1373,11 +1570,18 @@ const SceneEditorPage = ({
       return;
     }
 
+    if (!token) {
+      alert("กรุณาเข้าสู่ระบบก่อนสร้างตอน");
+      return;
+    }
+
     try {
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const nextEpisode = (chapters?.length || 0) + 1;
+
+      // 1. สร้างตอนใหม่
       const response = await fetch(`${API_BASE_URL}/chapters`, {
         method: "POST",
         headers,
@@ -1388,13 +1592,57 @@ const SceneEditorPage = ({
         }),
       });
 
-      if (response.ok) {
-        fetchSceneData();
-        window.dispatchEvent(new Event("novel-data-updated"));
+      if (!response.ok) throw new Error("ไม่สามารถสร้างตอนใหม่ได้");
+
+      const payload = await response.json().catch(() => null) || {};
+      const createdChapterId = payload.chapter_id ?? payload.id ?? payload.chapter?.id ?? payload.data?.chapter_id;
+
+      // 2. เก็บข้อความ Toast ไว้ใน sessionStorage
+      const chapterToast = `สร้างตอน "${newChapterTitle.trim()}" สำเร็จ`;
+      try { sessionStorage.setItem("toastMessage", chapterToast); } catch (e) { /* ignore */ }
+
+      // 3. สร้างฉากแรกอัตโนมัติทันที
+      try {
+        const sceneRes = await fetch(`${API_BASE_URL}/scenes`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            novel_id: parseInt(novelId, 10),
+            chapter_id: parseInt(createdChapterId, 10),
+            title: "ฉากแรก",
+            content: "",
+            x: 0, y: 0,
+            type: "normal",
+            status: "draft",
+          }),
+        });
+
+        const scenePayload = await sceneRes.json().catch(() => null) || {};
+        const createdSceneId = scenePayload.scene_id ?? scenePayload.id ?? scenePayload.data?.scene_id;
+
         setShowAddChapterDialog(false);
         setNewChapterTitle("");
-      } else {
-        setErrorMsg("ไม่สามารถสร้างตอนใหม่ได้");
+
+        // 4. ตั้งค่าให้ Focus ชื่อฉากเมื่อเปลี่ยนหน้า
+        sessionStorage.setItem("focusSceneTitle", "true");
+
+        // อัปเดตข้อมูลแถบด้านข้าง
+        await fetchSceneData();
+        window.dispatchEvent(new Event("novel-data-updated"));
+
+        // นำทางไปยังฉากใหม่
+        if (createdSceneId) {
+          if (typeof onNavigate === "function") {
+            onNavigate("scene-editor", { novelId, chapterId: createdChapterId, sceneId: createdSceneId });
+          }
+        } else {
+          if (typeof onNavigate === "function") {
+            onNavigate("scene-editor", { novelId, chapterId: createdChapterId, sceneId: "new" });
+          }
+        }
+      } catch (err) {
+        console.error("Error creating initial scene:", err);
+        await fetchSceneData();
       }
     } catch (err) {
       console.error("Add chapter error:", err);
@@ -1461,33 +1709,130 @@ const SceneEditorPage = ({
     currentScDisplayNumber = (currentChapterScenes?.length || 0) + 1;
   }
 
-  const handleOpenPreview = useCallback(() => {
-    if (!novelId || !sceneId) return;
-    const previewUrl = `/reading/${novelId}/${sceneId}?preview=true`;
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
-  }, [novelId, sceneId]);
+  const handleOpenPreview = (e) => {
+    if (e) e.preventDefault();
 
+    if (isUnsaved) {
+      setPendingAction("preview");
+      return;
+    }
+
+    if (!novelId || !sceneId) return;
+    window.open(`/reading/${novelId}/${sceneId}?preview=true`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleBack = () => {
+    if (isUnsaved) {
+      setPendingAction("back");
+      return;
+    }
+
+    if (typeof onNavigate === "function") {
+      onNavigate("chapters", { novelId });
+    } else {
+      navigate(`/writer/${novelId}/chapters`);
+    }
+  };
+  const handleDiscardPendingAction = (action) => {
+    if (action === "back") {
+      if (saveDraftTimer.current) {
+        clearTimeout(saveDraftTimer.current);
+      }
+      clearDraft();
+      setIsUnsaved(false);
+    }
+
+    setPendingAction(null);
+
+    if (action === "back") {
+      if (typeof onNavigate === "function") {
+        onNavigate("chapters", { novelId });
+      } else {
+        navigate(`/writer/${novelId}/chapters`);
+      }
+    }
+  };
+  const handleConfirmPendingAction = async (action) => {
+    if (!action) return;
+
+    await handleSave(null, false);
+    setPendingAction(null);
+
+    if (action === "preview") {
+      if (!novelId || !sceneId) return;
+      window.open(`/reading/${novelId}/${sceneId}?preview=true`, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (action === "back") {
+      if (typeof onNavigate === "function") {
+        onNavigate("chapters", { novelId });
+      } else {
+        navigate(`/writer/${novelId}/chapters`);
+      }
+    }
+  };
   const isEmptyNovel = !isLoading && (
     sceneId === "empty" ||
     chapters.length === 0 ||
     chapters.every(ch => !ch.scenes || ch.scenes.length === 0)
   );
 
+  // focus scene title when requested (e.g., after creating new chapter+scene)
+  useEffect(() => {
+    // เช็กว่าโหลดเสร็จแล้วค่อยทำงาน (กันบัค DOM ยังไม่สร้าง)
+    if (!isLoading) {
+      try {
+        if (sessionStorage.getItem("focusSceneTitle") === "true") {
+          // หน่วงเวลา 100ms ให้ Input ปรากฏบนหน้าจอก่อน
+          setTimeout(() => {
+            const el = document.getElementById("scene-title");
+            if (el) {
+              el.focus();
+              if (typeof el.select === "function") el.select();
+            }
+          }, 100);
+          sessionStorage.removeItem("focusSceneTitle");
+        }
+
+        const pendingToast = sessionStorage.getItem("toastMessage");
+        if (pendingToast) {
+          setToastMessage(pendingToast);
+          setTimeout(() => setToastMessage(null), 2000);
+          sessionStorage.removeItem("toastMessage");
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, [sceneId, isLoading]);
   if (isEmptyNovel) {
     return (
       <div className="se-page" style={{ background: "var(--gray-50)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <header className="se-header">
+          {toastMessage && (
+            <div style={{
+              position: 'fixed',
+              top: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#16a34a',
+              color: '#fff',
+              padding: '12px 24px',
+              borderRadius: '10px',
+              zIndex: 9999,
+              boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+              fontWeight: '600',
+              fontSize: '15px'
+            }}>
+              ✓ {toastMessage}
+            </div>
+          )}
           <div className="se-header__left">
             <button
               className="se-header__back"
-              onClick={() => {
-                if (window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  onNavigate("dashboard");
-                }
-              }}
+              onClick={handleBack}
               aria-label="ย้อนกลับ"
             >
               ย้อนกลับ
@@ -1549,17 +1894,28 @@ const SceneEditorPage = ({
     <div className="se-page">
       {/* Header */}
       <header className="se-header">
+        {toastMessage && (
+          <div style={{
+            position: 'fixed',
+            top: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#16a34a',
+            color: '#fff',
+            padding: '12px 24px',
+            borderRadius: '10px',
+            zIndex: 9999,
+            boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+            fontWeight: '600',
+            fontSize: '15px'
+          }}>
+            ✓ {toastMessage}
+          </div>
+        )}
         <div className="se-header__left">
-          {/* ปุ่มกลับอิงตามประวัติการเข้าชมจริงของเบราว์เซอร์ */}
           <button
             className="se-header__back"
-            onClick={() => {
-              if (window.history.length > 1) {
-                window.history.back();
-              } else {
-                onNavigate("story-tree", { novelId });
-              }
-            }}
+            onClick={handleBack}
             aria-label="ย้อนกลับ"
           >
             ย้อนกลับ
@@ -1599,7 +1955,7 @@ const SceneEditorPage = ({
           </button>
 
           <button className="se-header__btn se-header__btn--publish" onClick={handlePublish}>
-            เผยแพร่ตอน
+            เผยแพร่เลย
           </button>
         </div>
       </header>
@@ -1621,7 +1977,7 @@ const SceneEditorPage = ({
           isEnding={isEnding}
           setIsEnding={setIsEnding}
           onToggleEnding={handleToggleEnding}
-          onOpenEndingSettings={() => setShowEndingSettingsDialog(true)}
+          onOpenEndingSettings={handleOpenEndingSettings}
         />
         <main className="se-editor">
           <div className="se-section">
@@ -1646,6 +2002,7 @@ const SceneEditorPage = ({
                 value={sceneTitle}
                 onChange={(e) => {
                   setSceneTitle(e.target.value);
+                  setIsUnsaved(true);
                 }}
                 placeholder="ชื่อฉาก..."
               />
@@ -1659,10 +2016,12 @@ const SceneEditorPage = ({
                 theme="snow"
                 value={content}
                 onChange={(value) => {
-                  setContent(value);
+                  if (value !== content) {
+                    setContent(value);
+                    setIsUnsaved(true);
+                  }
                 }}
                 modules={quillModules}
-                formats={quillFormats}
                 placeholder="เริ่มเขียนเนื้อหาฉากของคุณ..."
                 className="se-quill"
               />
@@ -1699,7 +2058,7 @@ const SceneEditorPage = ({
                   index={i}
                   allTargetOptions={chapters}
                   currentChapterId={chapterId}
-                  currentSceneId={sceneId} 
+                  currentSceneId={sceneId}
                   onUpdate={updateChoice}
                   onSave={saveChoiceImmediately}
                   onDelete={deleteChoice}
@@ -1779,8 +2138,8 @@ const SceneEditorPage = ({
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e5e7eb" }}>
               <div>
-                <div style={{ fontSize: "1rem", fontWeight: 700, color: "#111827" }}>ตั้งค่าฉากจบ</div>
-                <div style={{ fontSize: "0.9rem", color: "#6b7280", marginTop: "4px" }}>กรุณาเลือกประเภทตอนจบและชื่อฉากก่อนบันทึก</div>
+                <div style={{ fontSize: "1rem", fontWeight: 700, color: "#111827" }}>กำหนดรายละเอียดฉากจบของคุณ</div>
+                <div style={{ fontSize: "0.9rem", color: "#6b7280", marginTop: "4px" }}>ข้อมูลส่วนนี้จะแสดงให้ผู้อ่านเห็น หลังจากอ่านมาถึงและปลดล็อกฉากจบนี้แล้วเท่านั้น</div>
               </div>
               <button
                 onClick={() => setShowEndingSettingsDialog(false)}
@@ -1896,8 +2255,67 @@ const SceneEditorPage = ({
           </div>
         </div>
       )}
+
+      {/* 🛑 Dialog แจ้งเตือนเมื่อลืมบันทึก (Custom Popup) */}
+      {pendingAction && (
+        <div className="se-modal-overlay">
+          <div className="se-modal-content">
+            <div className="se-modal-icon">⚠️</div>
+            <h3 className="se-modal-title">มีเนื้อหาที่ยังไม่ได้บันทึก</h3>
+            <p className="se-modal-desc">
+              กรุณาบันทึกข้อมูลก่อน
+              {pendingAction === "preview" ? "เข้าสู่โหมดทดลองอ่าน" : "ออกจากหน้านี้"}
+              เพื่อป้องกันการสูญหาย
+            </p>
+            <div className="se-modal-actions">
+              <button
+                className="se-modal-btn se-modal-btn--cancel"
+                onClick={() => handleDiscardPendingAction(pendingAction)}
+              >
+                {pendingAction === "back" ? "ออกโดยไม่บันทึก" : "ยกเลิก"}
+              </button>
+              <button
+                className="se-modal-btn se-modal-btn--save"
+                onClick={() => handleConfirmPendingAction(pendingAction)}
+              >
+                ✓ บันทึก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+  {/* 🛑 Dialog แจ้งเตือนเมื่อลืมบันทึก (Custom Popup) */ }
+  {
+    pendingAction && (
+      <div className="se-modal-overlay">
+        <div className="se-modal-content">
+          <div className="se-modal-icon">⚠️</div>
+          <h3 className="se-modal-title">มีเนื้อหาที่ยังไม่ได้บันทึก</h3>
+          <p className="se-modal-desc">
+            กรุณาบันทึกข้อมูลก่อน
+            {pendingAction === "preview" ? "เข้าสู่โหมดทดลองอ่าน" : "ออกจากหน้านี้"}
+            เพื่อป้องกันการสูญหาย
+          </p>
+          <div className="se-modal-actions">
+            <button
+              className="se-modal-btn se-modal-btn--cancel"
+              onClick={() => handleDiscardPendingAction(pendingAction)}
+            >
+              {pendingAction === "back" ? "ออกโดยไม่บันทึก" : "ยกเลิก"}
+            </button>
+            <button
+              className="se-modal-btn se-modal-btn--save"
+              onClick={() => handleConfirmPendingAction(pendingAction)}
+            >
+              ✓ บันทึก
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 };
 
 export default SceneEditorPage;

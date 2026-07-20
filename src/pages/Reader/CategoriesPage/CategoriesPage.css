@@ -1,115 +1,279 @@
-.categories-page {
-  padding: 40px 24px;
-  background: #fdf8f9; /* สีขาวพาสเทลอมชมพูละมุนตา */
+/* CategoriesPage.css */
+
+.cat-page {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  background: #F9FAFB;
+  font-family: 'Sarabun', sans-serif;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────── */
+.cat-page__hero {
+  background: linear-gradient(160deg, #FFF0F8 0%, #ffffff 60%);
+  border-bottom: 1px solid #FCE4F0;
+  padding: 40px 40px 32px;
+}
+
+.cat-page__hero-inner {
+  max-width: 900px;
+}
+
+/* แก้: var(--pink-500) ไม่ได้ define → ใช้ค่าจริง */
+.cat-page__eyebrow {
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #E91E8C;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
 }
 
-.categories-page__hero,
-.categories-page__content,
-.categories-page__list {
-  width: 100%;
-  max-width: 1140px;
-}
-
-.categories-page__hero {
-  margin-bottom: 28px;
-  padding: 32px;
-  border-radius: 24px;
-  background: #ffffff;
-  box-shadow: 0 10px 25px -5px rgba(244, 63, 94, 0.05);
-  text-align: left;
-}
-
-.categories-page__eyebrow {
-  font-size: 0.8rem;
-  letter-spacing: 0.15em;
-  color: var(--pink-500);
+.cat-page__title {
+  font-size: clamp(24px, 3vw, 34px);
   font-weight: 800;
+  color: #111827;
+  margin: 0 0 8px;
+}
+
+.cat-page__subtitle {
+  font-size: 14px;
+  color: #6B7280;
+  line-height: 1.7;
+  max-width: 480px;
+  margin: 0 0 18px;
+}
+
+.cat-page__hero-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cat-page__summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid #FCE4F0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9B2060;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────── */
+.cat-page__body {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 40px 64px;
+}
+
+.cat-page__section {
+  padding-top: 32px;
+}
+
+/* ── Category grid ────────────────────────────────────────────────── */
+.cat-page__category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.cat-page__no-cat {
+  font-size: 14px;
+  color: #9CA3AF;
+  padding: 20px 0;
+}
+
+.cat-page__error-box {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.cat-page__retry-btn {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 9px 20px;
+  border-radius: 12px;
+  background: #FEF0F6;
+  color: #E91E8C;
+  border: 1px solid #FCE4F0;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ── Category card skeleton ───────────────────────────────────────── */
+@keyframes cat-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.cat-page__category-skeleton {
+  border-radius: 14px;
+  border: 1px solid #F3F4F6;
+  background: #fff;
+  padding: 18px 16px;
+}
+
+.cat-page__sk {
+  background: linear-gradient(90deg, #F3F4F6 25%, #E9EBF0 50%, #F3F4F6 75%);
+  background-size: 400px 100%;
+  animation: cat-shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+.cat-page__sk--icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.cat-page__sk--title {
+  height: 13px;
+  width: 70%;
+  margin-bottom: 8px;
+}
+
+.cat-page__sk--count {
+  height: 11px;
+  width: 45%;
+}
+
+/* ── Novel list header ────────────────────────────────────────────── */
+.cat-page__list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.cat-page__list-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cat-page__list-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #E91E8C;
+  background: #FEF0F6;
+  padding: 2px 9px;
+  border-radius: 10px;
+}
+
+.cat-page__clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  background: #FEF0F6;
+  color: #E91E8C;
+  border: 1px solid #FCE4F0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.cat-page__clear-btn:hover {
+  background: #FCE4F0;
+}
+
+/* ── Novel grid ───────────────────────────────────────────────────── */
+.cat-page__novel-grid {
+  display: grid;
+  /* minmax คงที่ไม่เปลี่ยนตาม breakpoint */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+  /* แก้ bug การ์ดยืด: align-items: start ทำให้การ์ดสูงตามเนื้อหา */
+  align-items: start;
+}
+
+/* แก้: ลบ height: 100% ที่ทำให้การ์ดยืดออก */
+.cat-page__novel-grid .novel-card {
+  height: auto;
+}
+
+/* ── Novel skeleton ───────────────────────────────────────────────── */
+.cat-page__novel-skeleton {
+  border-radius: 14px;
+  border: 1px solid #F3F4F6;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cat-page__sk--cover {
+  aspect-ratio: 2/3;
+  width: 100%;
   display: block;
+  background: linear-gradient(90deg, #F3F4F6 25%, #E9EBF0 50%, #F3F4F6 75%);
+  background-size: 400px 100%;
+  animation: cat-shimmer 1.4s infinite linear;
+  border-radius: 0;
+}
+
+.cat-page__sk--line {
+  height: 11px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, #F3F4F6 25%, #E9EBF0 50%, #F3F4F6 75%);
+  background-size: 400px 100%;
+  animation: cat-shimmer 1.4s infinite linear;
+}
+
+.cat-page__sk--med   { width: 80%; }
+.cat-page__sk--short { width: 50%; }
+
+/* ── Empty state ──────────────────────────────────────────────────── */
+.cat-page__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 64px 24px;
+  color: #9CA3AF;
+}
+
+.cat-page__empty-icon {
+  font-size: 44px;
+  margin-bottom: 12px;
+}
+
+.cat-page__empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #374151;
   margin-bottom: 6px;
 }
 
-.categories-page__title {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 800;
-  color: #1e293b;
+.cat-page__empty-sub {
+  font-size: 13px;
+  line-height: 1.65;
 }
 
-.categories-page__subtitle {
-  margin: 10px 0 0;
-  color: #64748b;
-  font-size: 0.95rem;
-  line-height: 1.5;
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .cat-page__hero     { padding: 32px 24px 28px; }
+  .cat-page__body     { padding: 0 20px 48px; }
 }
 
-/* ปรับให้การ์ดเรียงแถวละ 3 ชิ้นบนจอใหญ่ เพื่อไม่ให้บีบจนแคบและยืดเป็นแท่งยาว */
-.categories-page__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.categories-page__list {
-  background: #ffffff;
-  padding: 32px;
-  border-radius: 24px;
-  box-shadow: 0 10px 25px -5px rgba(244, 63, 94, 0.05);
-}
-
-.categories-page__list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #fff1f2;
-  padding-bottom: 12px;
-}
-
-.categories-page__list-header h2 {
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: #1e293b;
-}
-
-.categories-page__clear {
-  background: #fff1f2;
-  color: #e11d48;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 9999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.categories-page__clear:hover {
-  background: #ffe4e6;
-  transform: scale(1.03);
-}
-
-.categories-page__novels {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
-}
-
-.categories-page__novels .novel-card {
-  height: 100%;
-}
-
-.categories-page__loading,
-.categories-page__error,
-.categories-page__empty {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 40px;
-  color: #64748b;
-  font-weight: 500;
+@media (max-width: 640px) {
+  .cat-page__hero         { padding: 28px 16px 24px; }
+  .cat-page__body         { padding: 0 16px 48px; }
+  .cat-page__category-grid { grid-template-columns: repeat(2, 1fr); }
+  .cat-page__novel-grid   { grid-template-columns: repeat(2, 1fr); gap: 12px; }
 }

@@ -278,7 +278,7 @@ const EditNovelPage = ({ onNavigate }) => {
 
             if (form.coverFile) {
                 const imageFormData = new FormData();
-                imageFormData.append("image", form.coverFile);
+                imageFormData.append("image", form.coverFile, "cover_novel.jpg");
 
                 const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {
                     method: "POST",
