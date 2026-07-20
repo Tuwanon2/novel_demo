@@ -1026,7 +1026,7 @@ const SceneEditorPage = ({
         if (!sceneRes.ok) throw new Error("ไม่สามารถดึงข้อมูลรายละเอียดฉากได้");
         const sceneResult = await sceneRes.json();
         const sceneData = sceneResult?.data || sceneResult;
-
+        console.log("ข้อมูลจาก API:", sceneData);
         // ─── ✨ 1. ตรวจสอบข้อมูลฉบับร่างใน localStorage ✨ ───
         let draftData = null;
         try {
@@ -1042,16 +1042,18 @@ const SceneEditorPage = ({
         setChapterTitle(sceneData.chapterTitle || sceneData.chapter_title || "ไม่ระบุชื่อตอน");
 
         // ─── ✨ 2. ผสานค่าระหว่าง Draft กับ Backend ✨ ───
-        const resolvedSceneTitle = draftData?.sceneTitle !== undefined ? draftData.sceneTitle : (sceneData.sceneTitle || sceneData.scene_title || sceneData.title || "");
+        const apiTitle = sceneData.sceneTitle || sceneData.scene_title || sceneData.title || "";
+        const apiContent = sceneData.content || "";
+        const apiLabel = sceneData.sceneLabel || sceneData.scene_label || apiTitle || `ฉาก ${sceneData.scene_id || sceneData.id}`;
+
+        // ถ้า draftData เป็นค่าว่าง (empty string) ให้ใช้ของ API แทน
+        const resolvedSceneTitle = (draftData?.sceneTitle) ? draftData.sceneTitle : apiTitle;
+        const resolvedSceneContent = (draftData?.content) ? draftData.content : apiContent;
+        const resolvedSceneLabel = (draftData?.sceneLabel) ? draftData.sceneLabel : apiLabel;
+
         setSceneTitle(resolvedSceneTitle);
-
-        setSceneLabel(
-          draftData?.sceneLabel !== undefined
-            ? draftData.sceneLabel
-            : (sceneData.sceneLabel || sceneData.scene_label || sceneData.sceneTitle || sceneData.scene_title || sceneData.title || `ฉาก ${sceneData.scene_id || sceneData.id}`)
-        );
-
-        setContent(draftData?.content !== undefined ? draftData.content : (sceneData.content || ""));
+        setSceneLabel(resolvedSceneLabel);
+        setContent(resolvedSceneContent);
 
         const resolvedSceneType = draftData?.sceneType !== undefined ? draftData.sceneType : (sceneData.type || sceneData.scene_type || "normal");
         setSceneType(resolvedSceneType);
@@ -1181,10 +1183,10 @@ const SceneEditorPage = ({
   // }, [isLoading, restoreDraft]);
 
   // Autosave: debounce and trigger when any editable field changes
-useEffect(() => {
+  useEffect(() => {
     // 🛑 แก้ไขจุดที่ 1: เพิ่ม || isLoading เพื่อป้องกันไม่ให้มันเซฟค่าว่างตอนกำลังโหลด API
-    if (!sceneDraftKey || isLoading) return; 
-    
+    if (!sceneDraftKey || isLoading) return;
+
     const timer = setTimeout(() => {
       try {
         saveDraftToStorage();
