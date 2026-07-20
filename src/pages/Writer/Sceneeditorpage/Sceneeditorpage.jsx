@@ -2013,7 +2013,7 @@ const SceneEditorPage = ({
         <main className="se-editor">
           <div className="se-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
-              <div className="se-section__heading" style={{ marginBottom: 0 }}>เนื้อหาฉาก</div>
+              <div className="se-section__heading" style={{ marginBottom: 0 }}>เนื้อหาฉา</div>
               <button
                 className="se-header__btn se-header__btn--preview se-header__btn--preview-inline"
                 type="button"
