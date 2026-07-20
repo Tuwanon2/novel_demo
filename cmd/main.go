@@ -30,6 +30,16 @@ func main() {
 	// -----------------------
 	// 2. Connect DB
 	// -----------------------
+	if cfg.DatabaseURL == "" && (cfg.DatabaseHost == "" || cfg.DatabaseUser == "" || cfg.DatabasePassword == "" || cfg.DatabaseName == "") {
+		log.Fatalf("❌ no database configuration found: set DATABASE_URL in Railway or provide host/user/password/dbname")
+	}
+
+	if cfg.DatabaseURL != "" {
+		fmt.Println("✅ Using Supabase DATABASE_URL for database connection")
+	} else {
+		fmt.Printf("✅ Using fallback DB config host=%s port=%d dbname=%s\n", cfg.DatabaseHost, cfg.DatabasePort, cfg.DatabaseName)
+	}
+
 	dbConn, err := db.Open(cfg)
 	if err != nil {
 		log.Fatalf("❌ DB connect fail: %v", err)
