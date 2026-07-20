@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"novel-be/internal/models"
 	"novel-be/internal/repository"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -24,7 +25,13 @@ func (s *sceneService) formatImageURL(imageName string) string {
 	if imageName == "" {
 		return ""
 	}
-	// baseURL นี้ต้องตรงกับที่ตั้งใน Docker MinIO
+	supabaseURL := strings.TrimRight(os.Getenv("SUPABASE_URL"), "/")
+	bucket := strings.TrimSpace(os.Getenv("SUPABASE_BUCKET"))
+	if supabaseURL != "" && bucket != "" {
+		return fmt.Sprintf("%s/storage/v1/object/public/%s/%s", supabaseURL, bucket, strings.TrimPrefix(imageName, "/"))
+	}
+
+	// fallback for local MinIO
 	baseURL := "http://localhost:9000/novel-buckets/"
 	return baseURL + imageName
 }

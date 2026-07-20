@@ -8,17 +8,23 @@ import (
 )
 
 type Config struct {
-	AppPort          string
-	DatabaseHost     string
-	DatabasePort     int
-	DatabaseUser     string
-	DatabasePassword string
-	DatabaseName     string
-	DatabaseSSLMode  string
-	MinIOEndpoint    string
-	MinIOAccessKey   string
-	MinIOSecretKey   string
-	MinIOUseSSL      bool
+	AppPort                string
+	DatabaseURL            string
+	DatabaseHost           string
+	DatabasePort           int
+	DatabaseUser           string
+	DatabasePassword       string
+	DatabaseName           string
+	DatabaseSSLMode        string
+	StorageProvider        string
+	SupabaseURL            string
+	SupabaseAnonKey        string
+	SupabaseServiceRoleKey string
+	SupabaseBucket         string
+	MinIOEndpoint          string
+	MinIOAccessKey         string
+	MinIOSecretKey         string
+	MinIOUseSSL            bool
 }
 
 func LoadConfig() (Config, error) {
@@ -29,41 +35,112 @@ func LoadConfig() (Config, error) {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// ✅ 2. เพิ่ม Default ให้ App Port ป้องกันเซิร์ฟเวอร์บึ้ม
-	viper.SetDefault("APP.PORT", "8080")
+	getString := func(keys ...string) string {
+		for _, key := range keys {
+			if value := strings.TrimSpace(viper.GetString(key)); value != "" {
+				return value
+			}
+		}
+		return ""
+	}
 
-	viper.SetDefault("POSTGRES.HOST", "localhost")
-	viper.SetDefault("POSTGRES.PORT", 5432)
-	viper.SetDefault("POSTGRES.USER", "postgres")
-	viper.SetDefault("POSTGRES.PASSWORD", "")
-	viper.SetDefault("POSTGRES.DBNAME", "novel") 
-	viper.SetDefault("POSTGRES.SSLMODE", "disable")
+	getInt := func(keys ...string) int {
+		for _, key := range keys {
+			if value := viper.GetInt(key); value != 0 {
+				return value
+			}
+		}
+		return 0
+	}
+
+	getBool := func(keys ...string) bool {
+		for _, key := range keys {
+			if value := viper.GetString(key); strings.EqualFold(value, "true") {
+				return true
+			}
+			if value := viper.GetString(key); strings.EqualFold(value, "false") {
+				return false
+			}
+		}
+		return false
+	}
+
+	// ✅ 2. เพิ่ม Default ให้ App Port ป้องกันเซิร์ฟเวอร์บึ้ม
+	appPort := getString("APP.PORT", "APP_PORT", "PORT")
+	if appPort == "" {
+		appPort = "8080"
+	}
+
+	databaseURL := getString("DATABASE.URL", "DATABASE_URL")
+	databaseHost := getString("POSTGRES.HOST", "POSTGRES_HOST", "DB_HOST")
+	databasePort := getInt("POSTGRES.PORT", "POSTGRES_PORT")
+	if databasePort == 0 {
+		databasePort = 5432
+	}
+	databaseUser := getString("POSTGRES.USER", "POSTGRES_USER")
+	databasePassword := getString("POSTGRES.PASSWORD", "POSTGRES_PASSWORD")
+	databaseName := getString("POSTGRES.DBNAME", "POSTGRES_DBNAME")
+	databaseSSLMode := getString("POSTGRES.SSLMODE", "POSTGRES_SSLMODE")
+	if databaseSSLMode == "" {
+		databaseSSLMode = "disable"
+	}
+
+	storageProvider := strings.ToLower(getString("STORAGE.PROVIDER", "STORAGE_PROVIDER"))
+	if storageProvider == "" {
+		storageProvider = "minio"
+	}
+	supabaseURL := strings.TrimRight(getString("SUPABASE.URL", "SUPABASE_URL"), "/")
+	supabaseAnonKey := getString("SUPABASE.ANON_KEY", "SUPABASE_ANON_KEY")
+	supabaseServiceRoleKey := getString("SUPABASE.SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY")
+	supabaseBucket := getString("SUPABASE.BUCKET", "SUPABASE_BUCKET")
+	if supabaseBucket == "" {
+		supabaseBucket = "image"
+	}
 
 	// MinIO defaults
-	viper.SetDefault("MINIO.ENDPOINT", "minio:9000") // เปลี่ยนเป็น localhost:9000 ถ้ารันนอก docker
-	viper.SetDefault("MINIO.ACCESS_KEY", "minioadmin")
-	viper.SetDefault("MINIO.SECRET_KEY", "minioadmin")
-	viper.SetDefault("MINIO.USE_SSL", false)
+	minioEndpoint := getString("MINIO.ENDPOINT", "MINIO_ENDPOINT")
+	if minioEndpoint == "" {
+		minioEndpoint = "minio:9000"
+	}
+	minioAccessKey := getString("MINIO.ACCESS_KEY", "MINIO_ACCESS_KEY")
+	if minioAccessKey == "" {
+		minioAccessKey = "minioadmin"
+	}
+	minioSecretKey := getString("MINIO.SECRET_KEY", "MINIO_SECRET_KEY")
+	if minioSecretKey == "" {
+		minioSecretKey = "minioadmin"
+	}
+	minioUseSSL := getBool("MINIO.USE_SSL", "MINIO_USE_SSL")
 
 	// Set config values
 	config := Config{
-		AppPort:          viper.GetString("APP.PORT"),
-		DatabaseHost:     viper.GetString("POSTGRES.HOST"),
-		DatabasePort:     viper.GetInt("POSTGRES.PORT"),
-		DatabaseUser:     viper.GetString("POSTGRES.USER"),
-		DatabasePassword: viper.GetString("POSTGRES.PASSWORD"),
-		DatabaseName:     viper.GetString("POSTGRES.DBNAME"),
-		DatabaseSSLMode:  viper.GetString("POSTGRES.SSLMODE"),
-		MinIOEndpoint:    viper.GetString("MINIO.ENDPOINT"),
-		MinIOAccessKey:   viper.GetString("MINIO.ACCESS_KEY"),
-		MinIOSecretKey:   viper.GetString("MINIO.SECRET_KEY"),
-		MinIOUseSSL:      viper.GetBool("MINIO.USE_SSL"),
+		AppPort:                appPort,
+		DatabaseURL:            databaseURL,
+		DatabaseHost:           databaseHost,
+		DatabasePort:           databasePort,
+		DatabaseUser:           databaseUser,
+		DatabasePassword:       databasePassword,
+		DatabaseName:           databaseName,
+		DatabaseSSLMode:        databaseSSLMode,
+		StorageProvider:        storageProvider,
+		SupabaseURL:            supabaseURL,
+		SupabaseAnonKey:        supabaseAnonKey,
+		SupabaseServiceRoleKey: supabaseServiceRoleKey,
+		SupabaseBucket:         supabaseBucket,
+		MinIOEndpoint:          minioEndpoint,
+		MinIOAccessKey:         minioAccessKey,
+		MinIOSecretKey:         minioSecretKey,
+		MinIOUseSSL:            minioUseSSL,
 	}
 
 	return config, nil
 }
 
 func (c *Config) GetConnectionString() string {
+	if c.DatabaseURL != "" {
+		return c.DatabaseURL
+	}
+
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		c.DatabaseHost,
 		c.DatabasePort,

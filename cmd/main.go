@@ -42,21 +42,38 @@ func main() {
 	fmt.Println("✅ DB Connected")
 
 	// -----------------------
-	// 3. Connect MinIO
+	// 3. Connect Storage
 	// -----------------------
-	minioClient, err := minio.New(cfg.MinIOEndpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.MinIOAccessKey, cfg.MinIOSecretKey, ""),
-		Secure: cfg.MinIOUseSSL,
-	})
-	if err != nil {
-		log.Fatalf("❌ MinIO connect fail: %v", err)
-	}
+	var mediaRepo repository.MediaRepository
+	ctx := context.Background()
 
-	_, err = minioClient.ListBuckets(context.Background())
-	if err != nil {
-		log.Fatalf("❌ MinIO ping fail: %v", err)
+	if cfg.StorageProvider == "supabase" {
+		mediaRepo = repository.NewSupabaseMediaRepository(cfg.SupabaseURL, cfg.SupabaseAnonKey, cfg.SupabaseServiceRoleKey, cfg.SupabaseBucket)
+		if err := mediaRepo.EnsureBucketExists(ctx, cfg.SupabaseBucket); err != nil {
+			log.Fatalf("❌ failed to initialize Supabase storage: %v", err)
+		}
+		fmt.Println("✅ Supabase Storage Ready")
+	} else {
+		minioClient, err := minio.New(cfg.MinIOEndpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(cfg.MinIOAccessKey, cfg.MinIOSecretKey, ""),
+			Secure: cfg.MinIOUseSSL,
+		})
+		if err != nil {
+			log.Fatalf("❌ MinIO connect fail: %v", err)
+		}
+
+		_, err = minioClient.ListBuckets(context.Background())
+		if err != nil {
+			log.Fatalf("❌ MinIO ping fail: %v", err)
+		}
+		fmt.Println("✅ MinIO Connected")
+
+		mediaRepo = repository.NewMinIOMediaRepository(minioClient, cfg.MinIOEndpoint)
+		if err := mediaRepo.EnsureBucketExists(ctx, cfg.SupabaseBucket); err != nil {
+			log.Fatalf("❌ failed to ensure MinIO bucket: %v", err)
+		}
+		fmt.Println("✅ MinIO Bucket Ready")
 	}
-	fmt.Println("✅ MinIO Connected")
 
 	// -----------------------
 	// 4. Repositories
@@ -66,17 +83,9 @@ func main() {
 	chapterRepo := repository.NewChapterRepository(dbConn)
 	socialRepo := repository.NewSocialRepository(dbConn)
 	readingRepo := repository.NewReadingRepository(dbConn)
-	mediaRepo := repository.NewMinIOMediaRepository(minioClient, cfg.MinIOEndpoint)
 	categoryRepo := repository.NewCategoryRepository(dbConn)
 	authRepo := repository.NewAuthRepository(dbConn)
 	writerRepo := repository.NewWriterRepository(dbConn) // 👈 ผูกเชื่อมตารางสมัครนักเขียนเข้าฐานข้อมูลจริง
-
-	// Ensure MinIO bucket exists
-	ctx := context.Background()
-	if err := mediaRepo.EnsureBucketExists(ctx, "novel-buckets"); err != nil {
-		log.Fatalf("❌ failed to ensure MinIO bucket: %v", err)
-	}
-	fmt.Println("✅ MinIO Bucket Ready")
 
 	// -----------------------
 	// 5. Services

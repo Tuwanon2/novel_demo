@@ -6,16 +6,13 @@ import (
 	"mime/multipart"
 	"novel-be/internal/repository"
 	"path/filepath"
-<<<<<<< HEAD
 	"strings"
-=======
->>>>>>> 6a237f06023a07c5667f7e5673ced9f1e788bc2d
 	"time"
 )
 
 const (
-	NovelImagesBucket = "novel-buckets"
-	MaxFileSize       = 10 * 1024 * 1024
+	DefaultNovelImagesBucket = "image"
+	MaxFileSize               = 10 * 1024 * 1024
 )
 
 type mediaService struct {
@@ -63,14 +60,12 @@ func (s *mediaService) UploadImage(ctx context.Context, file *multipart.FileHead
 
 	objectName := fmt.Sprintf("uploads/%d-%s", time.Now().Unix(), cleanFilename)
 
-	if err := s.mediaRepo.EnsureBucketExists(ctx, NovelImagesBucket); err != nil {
+	if err := s.mediaRepo.EnsureBucketExists(ctx, DefaultNovelImagesBucket); err != nil {
 		return "", err
 	}
 
-	contentType := file.Header.Get("Content-Type")
-
 	// 🟢 รับ URL เต็ม (http://minio:9000/...) มาส่งต่อ
-	url, err := s.mediaRepo.UploadFile(ctx, NovelImagesBucket, objectName, src, file.Size, contentType)
+	url, err := s.mediaRepo.UploadFile(ctx, DefaultNovelImagesBucket, objectName, src, file.Size, contentType)
 	if err != nil {
 		return "", err
 	}
@@ -79,14 +74,13 @@ func (s *mediaService) UploadImage(ctx context.Context, file *multipart.FileHead
 }
 
 func (s *mediaService) DeleteImage(ctx context.Context, filename string) error {
-	return s.mediaRepo.DeleteFile(ctx, NovelImagesBucket, filename)
+	return s.mediaRepo.DeleteFile(ctx, DefaultNovelImagesBucket, filename)
 }
 
 func (s *mediaService) GetPresignedURL(ctx context.Context, filename string) (string, error) {
-	return s.mediaRepo.GetPresignedURL(ctx, NovelImagesBucket, filename)
+	return s.mediaRepo.GetPresignedURL(ctx, DefaultNovelImagesBucket, filename)
 }
 
-<<<<<<< HEAD
 func isAllowedImageType(ext string, contentType string) bool {
 	ext = strings.ToLower(strings.TrimSpace(ext))
 	contentType = strings.ToLower(strings.TrimSpace(contentType))
@@ -99,9 +93,4 @@ func isAllowedImageType(ext string, contentType string) bool {
 		return true
 	}
 	return false
-=======
-func isAllowedImageType(ext string) bool {
-	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
-	return allowed[ext]
->>>>>>> 6a237f06023a07c5667f7e5673ced9f1e788bc2d
 }
