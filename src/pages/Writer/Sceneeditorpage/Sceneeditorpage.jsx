@@ -1042,18 +1042,18 @@ const SceneEditorPage = ({
         setChapterTitle(sceneData.chapterTitle || sceneData.chapter_title || "ไม่ระบุชื่อตอน");
 
         // ─── ✨ 2. ผสานค่าระหว่าง Draft กับ Backend ✨ ───
-        const apiTitle = sceneData.sceneTitle || sceneData.scene_title || sceneData.title || "";
+        const apiTitle = sceneData.title || sceneData.sceneTitle || sceneData.scene_title || "";
         const apiContent = sceneData.content || "";
-        const apiLabel = sceneData.sceneLabel || sceneData.scene_label || apiTitle || `ฉาก ${sceneData.scene_id || sceneData.id}`;
+        const apiLabel = sceneData.title || sceneData.sceneLabel || sceneData.scene_label || `ฉาก ${sceneData.scene_id || sceneData.id}`;
 
         // ถ้า draftData เป็นค่าว่าง (empty string) ให้ใช้ของ API แทน
-        const resolvedSceneTitle = (draftData?.sceneTitle) ? draftData.sceneTitle : apiTitle;
-        const resolvedSceneContent = (draftData?.content) ? draftData.content : apiContent;
-        const resolvedSceneLabel = (draftData?.sceneLabel) ? draftData.sceneLabel : apiLabel;
+        const resolvedSceneTitle = draftData?.sceneTitle ? draftData.sceneTitle : apiTitle;
+        const resolvedSceneContent = draftData?.content ? draftData.content : apiContent;
+        const resolvedSceneLabel = draftData?.sceneLabel ? draftData.sceneLabel : apiLabel;
 
         setSceneTitle(resolvedSceneTitle);
         setSceneLabel(resolvedSceneLabel);
-        setContent(resolvedSceneContent);
+        setContent(resolvedSceneContent);;
 
         const resolvedSceneType = draftData?.sceneType !== undefined ? draftData.sceneType : (sceneData.type || sceneData.scene_type || "normal");
         setSceneType(resolvedSceneType);
