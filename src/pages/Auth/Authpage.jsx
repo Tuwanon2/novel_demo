@@ -7,6 +7,9 @@
 import React, { useState, useEffect } from "react";
 import "./Authpage.css";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
 // ══════════════════════════════════════════════════════════
 //  Icons (inline SVG components)
 // ══════════════════════════════════════════════════════════
@@ -403,7 +406,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
         }
       }
 
-      const apiEndpoint = '/api/register'; 
+      const apiEndpoint = `${API_BASE_URL}/api/register`;
       console.log(`🛰️ Sending HTTP POST to endpoint: "${apiEndpoint}"`);
 
       const res = await fetch(apiEndpoint, {
