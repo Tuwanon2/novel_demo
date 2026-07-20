@@ -11,7 +11,7 @@ import {
 
 import Navbar from "./components/Navbar/Navbar";
 import NavbarWriter from "./components/Navbarwriter/Navbarwriter";
-import WriterSidebar from "./components/WriterSidebar/WriterSidebar";
+import WriterSidebar from "./components/Writersidebar/Writersidebar";
 import AdminNavbar from "./components/NavbarAdmin/AdminNavbar";
 
 import HomePage from "./pages/Reader/HomePage/HomePage";
@@ -23,17 +23,17 @@ import BookshelfPage from "./pages/Reader/BookshelfPage/BookshelfPage";
 import HistoryPage from "./pages/Reader/HistoryPage/HistoryPage";
 import FollowingWriters from "./pages/Reader/FollowingWriters/FollowingWriters";
 
-import WriterDashboardPage from "./pages/Writer/WriterDashboardPage/WriterDashboardPage";
+import WriterDashboardPage from "./pages/Writer/Writerdashboardpage/Writerdashboardpage";
 import CreateNovelPage from "./pages/Writer/Createnovelpage/Createnovelpage";
 import ChapterManagerPage from "./pages/Writer/Chaptermanagerpage/Chaptermanagerpage";
-import WriterStoryTreePage from "./pages/Writer/WriterStoryTreePage/WriterStoryTreePage";
+import WriterStoryTreePage from "./pages/Writer/Writerstorytreepage/Writerstorytreepage";
 import SceneEditorPage from "./pages/Writer/Sceneeditorpage/Sceneeditorpage";
-import EditNovelPage from "./pages/Writer/Editnovelpage/Editnovelpage";
+import EditNovelPage from "./pages/Writer/EditNovelPage/EditNovelPage";
 
 import Manageusers from "./pages/Admin/Manageusers/Manageusers";
 
-import AuthPage from "./pages/Auth/AuthPage";
-import WriterRegisterPage from "./pages/Auth/WriterRegisterPage";
+import AuthPage from "./pages/Auth/Authpage";
+import WriterRegisterPage from "./pages/Auth/Writerregisterpage";
 
 import "./style/App.css";
 import "./style/index.css";
