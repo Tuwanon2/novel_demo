@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -53,6 +55,10 @@ func LoadConfig() (Config, error) {
 		return 0
 	}
 
+	getEnv := func(key string) string {
+		return strings.TrimSpace(os.Getenv(key))
+	}
+
 	getBool := func(keys ...string) bool {
 		for _, key := range keys {
 			if value := viper.GetString(key); strings.EqualFold(value, "true") {
@@ -72,17 +78,40 @@ func LoadConfig() (Config, error) {
 	}
 
 	databaseURL := getString("DATABASE.URL", "DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = getEnv("DATABASE_URL")
+	}
+
 	databaseHost := getString("POSTGRES.HOST", "POSTGRES_HOST", "DB_HOST")
+	if databaseHost == "" {
+		databaseHost = getEnv("PGHOST")
+	}
 	databasePort := getInt("POSTGRES.PORT", "POSTGRES_PORT")
+	if databasePort == 0 {
+		if value := getEnv("PGPORT"); value != "" {
+			if parsed, err := strconv.Atoi(value); err == nil {
+				databasePort = parsed
+			}
+		}
+	}
 	if databasePort == 0 {
 		databasePort = 5432
 	}
 	databaseUser := getString("POSTGRES.USER", "POSTGRES_USER")
+	if databaseUser == "" {
+		databaseUser = getEnv("PGUSER")
+	}
 	databasePassword := getString("POSTGRES.PASSWORD", "POSTGRES_PASSWORD")
+	if databasePassword == "" {
+		databasePassword = getEnv("PGPASSWORD")
+	}
 	databaseName := getString("POSTGRES.DBNAME", "POSTGRES_DBNAME")
+	if databaseName == "" {
+		databaseName = getEnv("PGDATABASE")
+	}
 	databaseSSLMode := getString("POSTGRES.SSLMODE", "POSTGRES_SSLMODE")
 	if databaseSSLMode == "" {
-		databaseSSLMode = "disable"
+		databaseSSLMode = "require"
 	}
 
 	storageProvider := strings.ToLower(getString("STORAGE.PROVIDER", "STORAGE_PROVIDER"))
