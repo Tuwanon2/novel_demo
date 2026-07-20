@@ -1,8 +1,8 @@
 // src/components/WriterSidebar/WriterSidebar.jsx
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import "./WriterSidebar.css";
-import { mockWriterProfile } from "../../data/mockWriterData";
+import "./Writersidebar.css";
+import { mockWriterProfile } from "../../data/mockwriterdata";
 
 // เมนูหลัก (ไม่ขึ้นกับนิยายที่เลือก)
 const MAIN_MENU = [

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom"; 
-import "./ReadingPage.css";
-import ReadingBreadcrumb from "../../../components/ReadingBreadcrumb/ReadingBreadcrumb";
+import "./Readingpage.css";
+import ReadingBreadcrumb from "../../../components/Readingbreadcrumb/Readingbreadcrumb";
 import ChoiceButtons from "../../../components/ChoiceButtons/ChoiceButtons";
 import RestartReadingButton from "../../../components/RestartReadingButton/RestartReadingButton";
 import ReadingSettings from "../../../components/ReadingSettings/ReadingSettings";
