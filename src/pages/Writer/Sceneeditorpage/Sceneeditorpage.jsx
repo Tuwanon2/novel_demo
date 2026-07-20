@@ -1171,18 +1171,20 @@ const SceneEditorPage = ({
     return () => window.removeEventListener("novel-data-updated", handleDataUpdate);
   }, [fetchSceneData]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      const timer = setTimeout(() => {
-        restoreDraft();
-      }, 50); // ดีเลย์ 50ms รอให้ State ของ API นิ่งก่อนแล้วดึงตััวดราฟต์มาทับ
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, restoreDraft]);
+  // useEffect(() => {
+  //   if (!isLoading) {
+  //     const timer = setTimeout(() => {
+  //       restoreDraft();
+  //     }, 50); // ดีเลย์ 50ms รอให้ State ของ API นิ่งก่อนแล้วดึงตััวดราฟต์มาทับ
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [isLoading, restoreDraft]);
 
   // Autosave: debounce and trigger when any editable field changes
-  useEffect(() => {
-    if (!sceneDraftKey) return;
+useEffect(() => {
+    // 🛑 แก้ไขจุดที่ 1: เพิ่ม || isLoading เพื่อป้องกันไม่ให้มันเซฟค่าว่างตอนกำลังโหลด API
+    if (!sceneDraftKey || isLoading) return; 
+    
     const timer = setTimeout(() => {
       try {
         saveDraftToStorage();
@@ -1192,9 +1194,9 @@ const SceneEditorPage = ({
     }, 500);
 
     return () => clearTimeout(timer);
-    // include all editable fields so any change triggers autosave
   }, [
     sceneDraftKey,
+    isLoading, // 👈 เพิ่ม isLoading เข้ามาใน dependency array ด้วย
     sceneTitle,
     sceneLabel,
     content,
