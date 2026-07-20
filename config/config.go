@@ -31,6 +31,7 @@ type Config struct {
 
 func LoadConfig() (Config, error) {
 	// ✅ 1. สั่งให้ Viper ลองหาไฟล์ .env และอ่านค่ามา (ถ้ามี)
+
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig() // ใช้ _ รับ Error ไว้ เพราะถ้ารันใน Docker อาจจะไม่มีไฟล์นี้ ก็ปล่อยผ่านได้
 
@@ -176,7 +177,8 @@ func (c *Config) GetConnectionString() string {
 	if c.DatabaseURL != "" {
 		return c.DatabaseURL
 	}
-
+	fmt.Println("TEST =", os.Getenv("TEST"))
+	fmt.Println("DATABASE_URL =", os.Getenv("DATABASE_URL"))
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		c.DatabaseHost,
 		c.DatabasePort,
