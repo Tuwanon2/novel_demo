@@ -141,6 +141,13 @@ func LoadConfig() (Config, error) {
 	}
 	minioUseSSL := getBool("MINIO.USE_SSL", "MINIO_USE_SSL")
 
+	// Debug: show whether DATABASE_URL is visible at runtime (no secrets printed)
+	if getEnv("DATABASE_URL") != "" || getString("DATABASE.URL", "DATABASE_URL") != "" {
+		fmt.Println("DEBUG: DATABASE_URL detected in environment/viper")
+	} else {
+		fmt.Println("DEBUG: DATABASE_URL NOT detected in environment/viper")
+	}
+
 	// Set config values
 	config := Config{
 		AppPort:                appPort,
