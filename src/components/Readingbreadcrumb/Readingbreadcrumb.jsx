@@ -1,6 +1,6 @@
 // src/components/ReadingBreadcrumb/ReadingBreadcrumb.jsx
 import React from "react";
-import "./ReadingBreadcrumb.css";
+import "./Readingbreadcrumb.css";
 
 /**
  * ReadingBreadcrumb — แถบ breadcrumb + Story Map button บนหน้าอ่านนิยาย
