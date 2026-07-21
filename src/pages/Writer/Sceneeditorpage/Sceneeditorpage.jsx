@@ -11,6 +11,9 @@ import "./Sceneeditorpage.css";
 import Toggle from "../../../components/Toggle/Toggle";
 import EndingSettings from "../../../components/EndingSettings/EndingSettings";
 import { API_BASE_URL } from "../../../utils/api.js";
+import Quill from "quill";
+import LoadingScreen from "../../../components/LoadingScreen/LoadingScreen";
+
 
 // ─────────────────────────────────────────────
 // React Quill config
@@ -853,7 +856,7 @@ const SceneEditorPage = ({
           ? savedDraft.endingDescriptionEnabled
           : Boolean(savedDraft.endingDescription || savedDraft.ending_description)
       );
-      if (Array.isArray(savedDraft.choices)) setChoices(savedDraft.choices);
+      // 🛡️ ไม่เอา choices จาก draft มาทับ choices จริงจาก Backend เพื่อความเรียลไทม์เสมอ
       if (savedDraft.draftSavedAt) {
         const savedTime = new Date(savedDraft.draftSavedAt);
         if (!Number.isNaN(savedTime.getTime())) {
@@ -1112,7 +1115,7 @@ const SceneEditorPage = ({
           setCurrentSelectedChapterId(chapterId);
         }
 
-        // ข้อมูลของ Choices ตัวเลือกท้ายตอน
+        // ข้อมูลของ Choices ตัวเลือกท้ายตอน (ใช้ข้อมูลล่าสุดจาก Backend เสมอเพื่อความเรียลไทม์)
         const backendChoices = (Array.isArray(sceneData.choices) ? sceneData.choices : []).map((choice) => ({
           ...choice,
           id: choice.id ?? choice.choice_id ?? choice.choiceId ?? `choice-${choice.choice_id || choice.id || Date.now()}`,
@@ -1120,7 +1123,7 @@ const SceneEditorPage = ({
           targetSubScene: choice.targetSubScene ?? choice.to_scene_id ?? choice.toSceneID ?? choice.toSceneId ?? "",
         }));
 
-        setChoices(Array.isArray(draftData?.choices) ? draftData.choices : backendChoices);
+        setChoices(backendChoices);
 
         if (draftData?.draftSavedAt) {
           setDraftSavedAt(new Date(draftData.draftSavedAt));
@@ -1827,6 +1830,37 @@ const SceneEditorPage = ({
       }
     }
   }, [sceneId, isLoading]);
+  useEffect(() => {
+    // เช็กว่าโหลดเสร็จแล้วค่อยทำงาน (กันบัค DOM ยังไม่สร้าง)
+    if (!isLoading) {
+      try {
+        if (sessionStorage.getItem("focusSceneTitle") === "true") {
+          setTimeout(() => {
+            const el = document.getElementById("scene-title");
+            if (el) {
+              el.focus();
+              if (typeof el.select === "function") el.select();
+            }
+          }, 100);
+          sessionStorage.removeItem("focusSceneTitle");
+        }
+
+        const pendingToast = sessionStorage.getItem("toastMessage");
+        if (pendingToast) {
+          setToastMessage(pendingToast);
+          setTimeout(() => setToastMessage(null), 2000);
+          sessionStorage.removeItem("toastMessage");
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, [sceneId, isLoading]);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   if (isEmptyNovel) {
     const searchParams = new URLSearchParams(window.location.search);
     const reasonParam = searchParams.get("reason");
