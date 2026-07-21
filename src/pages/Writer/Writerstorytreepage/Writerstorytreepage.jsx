@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import ReactFlow, {
   Handle,
   Position,
@@ -16,6 +16,7 @@ import ReactFlow, {
 import axios from "axios";
 import "reactflow/dist/style.css";  
 import "./Writerstorytreepage.css";
+import LoadingScreen from "../../../components/LoadingScreen/LoadingScreen";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
@@ -1726,6 +1727,10 @@ const StoryTreeInner = ({ novelId, onNavigate }) => {
     return null;
   };
 
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <div className="wst-page">
       {/* Toast Notification */}
@@ -2624,7 +2629,7 @@ const SceneDetailsCard = ({
         <div className="wst-scene-details__section-header">
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-            ฉากก่อนหน้า
+            ทางเลือกก่อนหน้า
           </span>
           <span className="wst-scene-details__choices-count-badge">
             {incomingChoices.length} ฉาก

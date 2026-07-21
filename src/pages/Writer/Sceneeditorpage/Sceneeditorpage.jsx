@@ -11,6 +11,7 @@ import "./SceneEditorPage.css";
 import Toggle from "../../../components/Toggle/Toggle";
 import EndingSettings from "../../../components/EndingSettings/EndingSettings";
 import Quill from "quill";
+import LoadingScreen from "../../../components/LoadingScreen/LoadingScreen";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
@@ -1811,6 +1812,37 @@ const SceneEditorPage = ({
       }
     }
   }, [sceneId, isLoading]);
+  useEffect(() => {
+    // เช็กว่าโหลดเสร็จแล้วค่อยทำงาน (กันบัค DOM ยังไม่สร้าง)
+    if (!isLoading) {
+      try {
+        if (sessionStorage.getItem("focusSceneTitle") === "true") {
+          setTimeout(() => {
+            const el = document.getElementById("scene-title");
+            if (el) {
+              el.focus();
+              if (typeof el.select === "function") el.select();
+            }
+          }, 100);
+          sessionStorage.removeItem("focusSceneTitle");
+        }
+
+        const pendingToast = sessionStorage.getItem("toastMessage");
+        if (pendingToast) {
+          setToastMessage(pendingToast);
+          setTimeout(() => setToastMessage(null), 2000);
+          sessionStorage.removeItem("toastMessage");
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, [sceneId, isLoading]);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   if (isEmptyNovel) {
     const searchParams = new URLSearchParams(window.location.search);
     const reasonParam = searchParams.get("reason");

@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import "./ChapterManagerPage.css";
 import { getNovelStatusInfo } from "../../../utils/novelStatus";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import LoadingScreen from "../../../components/LoadingScreen/LoadingScreen";
 
 const API_BASE = "http://localhost:8080";
 const getToken = () => localStorage.getItem("token");
@@ -1706,8 +1707,8 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
     return title.includes(search) || episode.includes(search);
   });
   if (loading) {
-    return <div className="cm-loading-fullscreen">🔄 โหลดข้อมูลพล็อตสตอรี่ทรี...</div>;
-  }
+  return <LoadingScreen message="กำลังโหลดข้อมูลหน้าจัดการตอน..." />;
+}
 
   return (
     <div className="cm-layout">
@@ -1843,7 +1844,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
             <div style={{ fontSize: "13.5px", fontWeight: 700, color: "#b91c1c" }}>กรอกข้อมูลตอนก่อนกดบันทึก</div>
             <div style={{ display: "grid", gap: "12px" }}>
               <div>
-                <label style={{ display: "block", marginBottom: "6px", fontSize: "12.5px", fontWeight: 600, color: "#4b5563" }}>ชื่อบท</label>
+                <label style={{ display: "block", marginBottom: "6px", fontSize: "12.5px", fontWeight: 600, color: "#4b5563" }}>ชื่อตอน</label>
                 <input
                   className="cm-input"
                   value={draftChapterTitle}
@@ -1852,7 +1853,7 @@ const ChapterManagerPage = ({ onNavigate, novelId }) => {
                 />
               </div>
               <div>
-                <label style={{ display: "block", marginBottom: "6px", fontSize: "12.5px", fontWeight: 600, color: "#4b5563" }}>สถานะบท</label>
+                <label style={{ display: "block", marginBottom: "6px", fontSize: "12.5px", fontWeight: 600, color: "#4b5563" }}>สถานะตอน</label>
                 <select
                   className="cm-select"
                   value={draftChapterStatus}
