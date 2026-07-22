@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./NovelCard.css";
 import { getNovelStatusInfo } from "../../utils/novelStatus";
 
@@ -23,7 +24,27 @@ import { getNovelStatusInfo } from "../../utils/novelStatus";
  *   onClick — function (optional)
  */
 const NovelCard = ({ novel, onClick }) => {
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(novel?.isLiked || false);
+  const authorId = novel?.author?.id || novel?.author_id || novel?.author?.writer_id || novel?.author?.user_id;
+
+  const handleAuthorClick = (e) => {
+    if (authorId) {
+      e.stopPropagation();
+      navigate(`/writer/profile/${authorId}`);
+    }
+  };
+
+  const authorDisplayName =
+    novel?.author?.penName ||
+    novel?.author?.pen_name ||
+    novel?.author?.displayName ||
+    novel?.author?.name ||
+    novel?.pen_name ||
+    novel?.penName ||
+    novel?.author_name ||
+    novel?.authorName ||
+    "ไม่ระบุ";
 
   // รองรับ field name หลายรูปแบบจาก API
   const views = novel?.views ?? novel?.view_count ?? novel?.stats?.views ?? 0;
@@ -91,7 +112,7 @@ const NovelCard = ({ novel, onClick }) => {
         {/* Categories */}
         <div className="novel-card__categories">
           {(novel.categories || []).slice(0, 2).map((cat, i) => (
-            <span key={i} className="novel-card__tag">{cat}</span>
+            <span key={i} className="novel-card__tag">{typeof cat === "object" ? cat.name : cat}</span>
           ))}
         </div>
 
@@ -128,7 +149,7 @@ const NovelCard = ({ novel, onClick }) => {
               {novel.author?.avatarEmoji || "✍️"}
             </span>
             <span className="novel-card__author-name">
-              {novel.author?.displayName || novel.author?.name || "ไม่ระบุ"}
+              {authorDisplayName}
             </span>
           </div>
 

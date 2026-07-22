@@ -1566,94 +1566,91 @@ const SceneEditorPage = ({
   };
 
   const handleConfirmAddChapter = async () => {
-    if (!newChapterTitle.trim()) return;
-    setIsAddingChapter(true);
+  if (!newChapterTitle.trim()) return;
 
+  try {
+    const token = localStorage.getItem("token");
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+    // 💡 คำนวณลำดับตอนถัดไปอัตโนมัติ
+    const nextEpisode = (Array.isArray(chapters) ? chapters.length : 0) + 1;
+
+    // 1. ส่งคำขอสร้างตอนใหม่ไปยัง API
+    const response = await fetch(`${API_BASE_URL}/chapters`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        novel_id: parseInt(novelId, 10),
+        title: newChapterTitle.trim(),
+        episode: nextEpisode,
+        status: "draft",
+      }),
+    });
+
+    if (!response.ok) throw new Error("ไม่สามารถสร้างตอนใหม่ได้");
+
+    const payload = await response.json().catch(() => null) || {};
+    const createdData = payload?.data || payload?.chapter || payload || {};
+    const createdChapterId = createdData.id || createdData.chapter_id || createdData.ChapterID || payload.chapter_id || Date.now();
+
+    // 2. อัปเดต state chapters ทันทีเพื่อให้ Sidebar แสดงตอนใหม่
+    const newChapterObj = {
+      id: createdChapterId,
+      chapter_id: createdChapterId,
+      ChapterID: createdChapterId,
+      title: createdData.title || newChapterTitle.trim(),
+      Title: createdData.title || newChapterTitle.trim(),
+      episode: createdData.episode || nextEpisode,
+      Episode: createdData.episode || nextEpisode,
+      scenes: []
+    };
+
+    setChapters((prev) => {
+      const prevArr = Array.isArray(prev) ? prev : [];
+      const exists = prevArr.some(c => String(c.id ?? c.chapter_id ?? c.ChapterID) === String(createdChapterId));
+      if (exists) return prevArr;
+      return [...prevArr, newChapterObj];
+    });
+
+    // 3. เก็บข้อความ Toast
+    const chapterToast = `สร้างตอน "${newChapterTitle.trim()}" สำเร็จ`;
+    try { sessionStorage.setItem("toastMessage", chapterToast); } catch (e) { /* ignore */ }
+
+    // 4. สร้างฉากแรกอัตโนมัติ
     try {
-      const token = localStorage.getItem("token");
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      // 1. ส่งคำขอสร้างตอนใหม่ไปยัง API
-      const response = await fetch(`${API_BASE_URL}/chapters`, {
+      await fetch(`${API_BASE_URL}/scenes`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           novel_id: parseInt(novelId, 10),
-          title: newChapterTitle.trim(),
-          episode: nextEpisode,
+          chapter_id: parseInt(createdChapterId, 10),
+          title: "ฉากแรก",
+          content: "",
+          x: 0, y: 0,
+          type: "normal",
           status: "draft",
         }),
       });
-
-      if (!response.ok) throw new Error("ไม่สามารถสร้างตอนใหม่ได้");
-
-      const payload = await response.json().catch(() => null) || {};
-      const createdData = payload?.data || payload?.chapter || payload || {};
-      const createdChapterId = createdData.id || createdData.chapter_id || createdData.ChapterID || payload.chapter_id || Date.now();
-
-      // 2. อัปเดต state chapters ทันทีเพื่อให้ Sidebar แสดงตอนใหม่โดยไม่ต้องรอ re-fetch
-      const newChapterObj = {
-        id: createdChapterId,
-        chapter_id: createdChapterId,
-        ChapterID: createdChapterId,
-        title: createdData.title || newChapterTitle.trim(),
-        Title: createdData.title || newChapterTitle.trim(),
-        episode: createdData.episode || nextEpisode,
-        Episode: createdData.episode || nextEpisode,
-        scenes: []
-      };
-
-      setChapters((prev) => {
-        const prevArr = Array.isArray(prev) ? prev : [];
-        const exists = prevArr.some(c => String(c.id ?? c.chapter_id ?? c.ChapterID) === String(createdChapterId));
-        if (exists) return prevArr;
-        return [...prevArr, newChapterObj];
-      });
-
-      // 3. เก็บข้อความ Toast ไว้ใน sessionStorage
-      const chapterToast = `สร้างตอน "${newChapterTitle.trim()}" สำเร็จ`;
-      try { sessionStorage.setItem("toastMessage", chapterToast); } catch (e) { /* ignore */ }
-
-      // 4. สร้างฉากแรกอัตโนมัติทันที
-      try {
-        const sceneRes = await fetch(`${API_BASE_URL}/scenes`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            novel_id: parseInt(novelId, 10),
-            chapter_id: parseInt(createdChapterId, 10),
-            title: "ฉากแรก",
-            content: "",
-            x: 0, y: 0,
-            type: "normal",
-            status: "draft",
-          }),
-        });
-
-        const scenePayload = await sceneRes.json().catch(() => null) || {};
-        const createdSceneId = scenePayload.scene_id ?? scenePayload.id ?? scenePayload.data?.scene_id;
-      } catch (sceneError) {
-        console.error("ไม่สามารถสร้างฉากแรกอัตโนมัติได้:", sceneError);
-      }
-
-      // 5. ดึงข้อมูลฉากทั้งหมดใหม่ และยิง Event แจ้งระบบ
-      await fetchSceneData();
-      window.dispatchEvent(new Event("novel-data-updated"));
-
-      // ปิด Modal และเคลียร์ค่า
-      setIsAddChapterModalOpen(false);
-      setNewChapterTitle("");
-
-    } catch (err) {
-      console.error("เกิดข้อผิดพลาดในการสร้างตอน:", err);
-      alert(err.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setIsAddingChapter(false);
+    } catch (sceneError) {
+      console.error("ไม่สามารถสร้างฉากแรกอัตโนมัติได้:", sceneError);
     }
-  }; // <--- เช็คดี ๆ ว่าหลังปีกกานี้ ไม่มีเศษปีกกา } หรือก้อน catch อันอื่นโผล่มาซ้ำนะครับ
+
+    // 5. ดึงข้อมูลฉากทั้งหมดใหม่ และยิง Event แจ้งระบบ
+    await fetchSceneData();
+    window.dispatchEvent(new Event("novel-data-updated"));
+
+    // 💡 ปิด Modal และเคลียร์ค่า (ใช้ State ที่ถูกต้อง)
+    setShowAddChapterDialog(false);
+    setNewChapterTitle("");
+
+  } catch (err) {
+    console.error("เกิดข้อผิดพลาดในการสร้างตอน:", err);
+    alert(err.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+  }
+};
   const savedText = lastSaved
     ? `บันทึกแล้ว ${lastSaved.getHours().toString().padStart(2, "0")}:${lastSaved.getMinutes().toString().padStart(2, "0")} น.`
     : draftSavedAt
@@ -2333,36 +2330,6 @@ const SceneEditorPage = ({
       )}
     </div>
   );
-  {/* 🛑 Dialog แจ้งเตือนเมื่อลืมบันทึก (Custom Popup) */ }
-  {
-    pendingAction && (
-      <div className="se-modal-overlay">
-        <div className="se-modal-content">
-          <div className="se-modal-icon">⚠️</div>
-          <h3 className="se-modal-title">มีเนื้อหาที่ยังไม่ได้บันทึก</h3>
-          <p className="se-modal-desc">
-            กรุณาบันทึกข้อมูลก่อน
-            {pendingAction === "preview" ? "เข้าสู่โหมดทดลองอ่าน" : "ออกจากหน้านี้"}
-            เพื่อป้องกันการสูญหาย
-          </p>
-          <div className="se-modal-actions">
-            <button
-              className="se-modal-btn se-modal-btn--cancel"
-              onClick={() => handleDiscardPendingAction(pendingAction)}
-            >
-              {pendingAction === "back" ? "ออกโดยไม่บันทึก" : "ยกเลิก"}
-            </button>
-            <button
-              className="se-modal-btn se-modal-btn--save"
-              onClick={() => handleConfirmPendingAction(pendingAction)}
-            >
-              ✓ บันทึก
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 };
 
 export default SceneEditorPage;
