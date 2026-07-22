@@ -28,7 +28,7 @@ import CreateNovelPage from "./pages/Writer/Createnovelpage/Createnovelpage";
 import ChapterManagerPage from "./pages/Writer/Chaptermanagerpage/Chaptermanagerpage";
 import WriterStoryTreePage from "./pages/Writer/Writerstorytreepage/Writerstorytreepage";
 import SceneEditorPage from "./pages/Writer/Sceneeditorpage/Sceneeditorpage";
-import EditNovelPage from "./pages/Writer/Editnovelpage/EditNovelPage";
+import EditNovelPage from "./pages/Writer/EditNovelPage/EditNovelPage";
 import WriterProfile from "./pages/Writer/WriterProfile/WriterProfile";
 
 import Manageusers from "./pages/Admin/Manageusers/Manageusers";
