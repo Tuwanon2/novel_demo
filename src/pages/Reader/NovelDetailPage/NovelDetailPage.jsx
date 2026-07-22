@@ -224,6 +224,8 @@ const NovelDetailPage = () => {
           ? Math.round((currentChapterProgress / totalChaptersProgress) * 100)
           : 0;
 
+        const authorDisplayName = nData.pen_name || nData.penName || nData.author_pen_name || nData.author_penName || nData.author_name || nData.authorName || nData.name_lastname || nData.name || "ไม่ทราบผู้แต่ง";
+
         setNovel({
           id: nData.novel_id || nData.id || id,
           title: nData.title || "ไม่พบชื่อเรื่อง",
@@ -236,7 +238,8 @@ const NovelDetailPage = () => {
             : ["ทั่วไป"],
           coverImage: formatMinioUrl(nData.cover_image) || null,
           author: {
-            displayName: nData.author_name || nData.pen_name || "ไม่ทราบผู้แต่ง",
+            displayName: authorDisplayName,
+            penName: nData.pen_name || nData.penName || nData.author_pen_name || nData.author_penName || null,
             avatarUrl: formatMinioUrl(nData.author_avatar) || null,
             writer_id: nData.author_writer_id || nData.author_writerId || nData.author_id || nData.user_id || null,
             user_id: nData.user_id || nData.author_id || null,
@@ -590,14 +593,31 @@ const NovelDetailPage = () => {
             <h1 className="novel-detail__title">{novel.title}</h1>
 
             <div className="novel-detail__author" aria-label={`ผู้แต่ง: ${novel.author.displayName}`}>
-              <div className="novel-detail__author-avatar" aria-hidden="true">
+              <div 
+                className="novel-detail__author-avatar" 
+                aria-hidden="true"
+                style={{ cursor: (novel.author?.writer_id || novel.author?.id || novel.author?.user_id) ? "pointer" : "default" }}
+                onClick={() => {
+                  const authorId = novel.author?.writer_id || novel.author?.id || novel.author?.user_id;
+                  if (authorId) navigate(`/writer/profile/${authorId}`);
+                }}
+              >
                 {novel.author.avatarUrl ? (
                   <img src={novel.author.avatarUrl} alt={novel.author.displayName} />
                 ) : (
                   <span>👤</span>
                 )}
               </div>
-              <span className="novel-detail__author-name">{novel.author.displayName}</span>
+              <span 
+                className="novel-detail__author-name"
+                style={{ cursor: (novel.author?.writer_id || novel.author?.id || novel.author?.user_id) ? "pointer" : "default" }}
+                onClick={() => {
+                  const authorId = novel.author?.writer_id || novel.author?.id || novel.author?.user_id;
+                  if (authorId) navigate(`/writer/profile/${authorId}`);
+                }}
+              >
+                {novel.author.displayName}
+              </span>
 
               {!isPreview && (novel.author?.writer_id || novel.author?.id) ? (
                 <FollowButton

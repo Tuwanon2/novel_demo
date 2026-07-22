@@ -28,7 +28,8 @@ import CreateNovelPage from "./pages/Writer/Createnovelpage/Createnovelpage";
 import ChapterManagerPage from "./pages/Writer/Chaptermanagerpage/Chaptermanagerpage";
 import WriterStoryTreePage from "./pages/Writer/Writerstorytreepage/Writerstorytreepage";
 import SceneEditorPage from "./pages/Writer/Sceneeditorpage/Sceneeditorpage";
-import EditNovelPage from "./pages/Writer/EditNovelPage/EditNovelPage";
+import EditNovelPage from "./pages/Writer/Editnovelpage/EditNovelPage";
+import WriterProfile from "./pages/Writer/WriterProfile/WriterProfile";
 
 import Manageusers from "./pages/Admin/Manageusers/Manageusers";
 
@@ -579,6 +580,15 @@ const EditNovelRoute = () => {
   );
 };
 
+const WriterProfileRoute = () => {
+  const navigate = useNavigate();
+  return (
+    <ReaderLayout>
+      <WriterProfile onNavigate={createNavigateHandler(navigate)} />
+    </ReaderLayout>
+  );
+};
+
 const getRoleFromToken = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
@@ -765,6 +775,9 @@ function App() {
         <Route path="/reading/:novelId/:sceneId" element={<RedirectAdminIfNeeded><ReadingRoute /></RedirectAdminIfNeeded>} />
 
         {/* Writer Routes */}
+        <Route path="/writer/profile" element={<RedirectAdminIfNeeded><WriterProfileRoute /></RedirectAdminIfNeeded>} />
+        <Route path="/writer/profile/:id" element={<RedirectAdminIfNeeded><WriterProfileRoute /></RedirectAdminIfNeeded>} />
+        <Route path="/writer/:id/profile" element={<RedirectAdminIfNeeded><WriterProfileRoute /></RedirectAdminIfNeeded>} />
         <Route path="/writer/dashboard" element={<RedirectAdminIfNeeded><WriterDashboardRoute /></RedirectAdminIfNeeded>} />
         <Route path="/writer/create" element={<RedirectAdminIfNeeded><CreateNovelRoute /></RedirectAdminIfNeeded>} />
         <Route path="/writer/:novelId/chapters" element={<RedirectAdminIfNeeded><ChapterManagerRoute /></RedirectAdminIfNeeded>} />

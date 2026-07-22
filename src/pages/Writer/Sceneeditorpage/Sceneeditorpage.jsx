@@ -1583,7 +1583,7 @@ const SceneEditorPage = ({
     setShowAddChapterDialog(true);
   };
 
-const handleConfirmAddChapter = async () => {
+  const handleConfirmAddChapter = async () => {
   if (!newChapterTitle.trim()) return;
 
   try {
@@ -2348,7 +2348,6 @@ const handleConfirmAddChapter = async () => {
       )}
     </div>
   );
- 
 };
 
 export default SceneEditorPage;

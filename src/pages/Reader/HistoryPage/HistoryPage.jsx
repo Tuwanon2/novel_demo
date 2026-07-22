@@ -54,7 +54,7 @@ const normalizeBook = (item) => {
   return {
     id: item.novel_id || item.id, 
     title: item.title || "ไม่ระบุชื่อเรื่อง",
-    author: item.author_name || item.pen_name || "ไม่ทราบผู้แต่ง",
+    author: item.pen_name || item.penName || item.author_pen_name || item.author_penName || item.author_name || item.authorName || item.name_lastname || item.name || item.username || "ไม่ทราบผู้แต่ง",
     categories: Array.isArray(item.categories) ? item.categories.map(c => typeof c === 'object' ? c.name : c) : ["ทั่วไป"],
     coverImage: item.cover_image || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=320&q=80",
     reading_status: item.reading_status || "reading",

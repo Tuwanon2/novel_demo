@@ -76,7 +76,8 @@ const HomePage = ({ onNavigate }) => {
             coverEmoji: data.cover_image ? "" : "📘",
 
             author: {
-              displayName: data.author_name || data.pen_name || "ไม่ทราบผู้แต่ง",
+              displayName: data.pen_name || data.penName || data.author_pen_name || data.author_penName || data.author_name || data.authorName || data.name_lastname || data.name || data.username || "ไม่ทราบผู้แต่ง",
+              penName: data.pen_name || data.penName || data.author_pen_name || data.author_penName || null,
               avatarUrl: formatMinioUrl(data.author_avatar),
             },
 

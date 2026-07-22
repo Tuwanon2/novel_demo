@@ -41,14 +41,14 @@ export default function WriterCard({ writer, onUnfollow, isFollowing = false }) 
     <div className="card">
       <div className="cardTop">
         <div className="metaRow">
-          <div className="avatarWrapper">
+          <div className="avatarWrapper" style={{ cursor: "pointer" }} onClick={() => navigate(`/writer/profile/${writer.id}`)}>
             <Avatar writer={writer} size={52} />
           </div>
 
           <div className="infoCol">
             <div className="infoHead">
               <div>
-                <div className="writerNameWrapper">
+                <div className="writerNameWrapper" style={{ cursor: "pointer" }} onClick={() => navigate(`/writer/profile/${writer.id}`)}>
                   <span className="writerName">{writer.name}</span>
                   {/* เงื่อนไขการขึ้น Badge อัปเดตใหม่ */}
                   {writer.hasUnreadUpdate && (
@@ -158,8 +158,7 @@ export default function WriterCard({ writer, onUnfollow, isFollowing = false }) 
         <button
           type="button"
           className="btnWorks"
-          onClick={() => handleOpenNovel(writer.novels?.[0]?.id)}
-          disabled={!writer.novels?.length}
+          onClick={() => navigate(`/writer/profile/${writer.id}`)}
         >
           ดูผลงาน →
         </button>

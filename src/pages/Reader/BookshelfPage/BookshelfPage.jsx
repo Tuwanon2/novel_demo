@@ -92,9 +92,14 @@ const normalizeBook = (item) => ({
         "ไม่มีชื่อเรื่อง",
 
     author:
-        item.author_name ||
         item.pen_name ||
+        item.penName ||
+        item.author_pen_name ||
+        item.author_penName ||
+        item.author_name ||
+        item.authorName ||
         item.author?.name ||
+        item.novel?.pen_name ||
         item.novel?.author_name ||
         "ไม่ทราบผู้แต่ง",
 
