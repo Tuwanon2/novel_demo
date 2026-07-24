@@ -201,10 +201,14 @@ func (r *sqlWriterRepository) GetPendingRequests(ctx context.Context) ([]dto.Wri
 	query := `
 		SELECT w.writer_id, w.user_id, u.username, w.name_lastname, w.pen_name, w.bio, w.email_writer, w.contact_info::text, w.status, w.applied_at
 		FROM writers w
-LEFT JOIN users u ON u.user_id = w.user_id
-WHERE w.writer_id = $1
-LIMIT 1`
-	rows, err := r.db.QueryContext(ctx, query)
+		LEFT JOIN users u ON u.user_id = w.user_id
+		WHERE w.status = 'pending' -- ✅ เปลี่ยนเงื่อนไขเป็นค้นหาจากสถานะ 'pending'
+		ORDER BY w.applied_at DESC -- ✅ (ทางเลือกเสริม) เรียงลำดับจากคำขอใหม่ล่าสุด
+	`
+	// ✅ ไม่ต้องส่งตัวแปรเพิ่ม เพราะเราใส่ 'pending' ตายตัวไปแล้ว
+	rows, err := r.db.QueryContext(ctx, query) 
+	
+	// ... (โค้ดส่วนที่เหลือยังคงเหมือนเดิม) ...
 	if err != nil {
 		return nil, err
 	}
